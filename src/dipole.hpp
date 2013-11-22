@@ -10,6 +10,7 @@
 #include "nlobk_config.hpp"
 #include <vector>
 #include <tools/interpolation.hpp>
+#include <string>
 
 /*
  * Dipole amplitude
@@ -27,14 +28,18 @@ class Dipole
             // Create interpolator of dipole amplitude values at rapidity yvals[i]
 
         double N(double r);         // Evaluates the initialized interpolator at r
+        double S(double r);         // 1 - N
 
         int AddRapidity(double y, double rgrid[]);
 
         double MinR();
         double MaxR();
         unsigned int RPoints();
+        unsigned int YPoints();
         double RVal(unsigned int rind);
         double YVal(unsigned int yind);
+
+        int Save(std::string filename);
 
     private:
         // amplitude[i][j] is vector of dipole amplitude values at rapidity yvals[i]
@@ -44,6 +49,7 @@ class Dipole
         std::vector< double > rvals;
 
         Interpolator* dipole_interp;        // Initialized interpolator to evaluate N(r)
+        unsigned int interpolator_yind;     // Rapidity index at which the interpolator is initialized
 };
 
 

@@ -10,6 +10,8 @@
 #include "solver.hpp"
 #include <csignal>
 #include <iostream>
+#include <iomanip>
+#include <gsl/gsl_errno.h>
 
 using std::cout;
 using std::cerr;
@@ -22,29 +24,37 @@ std::string output="output.dat";
 
 void SaveData();
 void SigIntHandler(int param);
+void ErrHandler(const char * reason,
+                        const char * file,
+                        int line,
+                        int gsl_errno);
 
 int main(int argc, char* argv[])
 {
 
-    //gsl_set_error_handler(&ErrHandler);
+    gsl_set_error_handler(&ErrHandler);
     std::signal(SIGINT, SigIntHandler);
 
     MV ic;
+	ic.SetQsqr(0.2);
     cout << "Initial condition is " << ic.GetString() << endl;
 
     Dipole dipole(&ic);
 
+    cout << "N(r=0.001)=" << dipole.N(0.001) <<", N(r=0.1)=" << dipole.N(0.1) <<", N(r=10)=" << dipole.N(10) << endl;
+
     BKSolver solver(&dipole);
-    solver.Solve(1);
+    solver.Solve(0.2);
+
+	std::string output="solutions/nlobk_nlo_maxy02_korjattu.dat";
+
+    cout << "Saving to file " << output << endl;
+    dipole.Save(output);
 
     return 0;
 }
 
-void SaveData()
-{
-    cout << "Saving data in file " << output << endl;
 
-}
 
 // User pressed ctrl+c or killed the program, save data
 void SigIntHandler(int param)
@@ -53,4 +63,29 @@ void SigIntHandler(int param)
 
 
     exit(1);
+}
+
+
+
+int errors;
+void ErrHandler(const char * reason,
+                        const char * file,
+                        int line,
+                        int gsl_errno)
+{
+    
+    // Errors related to convergence of integrals are handled when
+    // gsl_integration functions are called, don't do anything with them here
+    // 14 = failed to reach tolerance
+    // 18 = roundoff error prevents tolerance from being achieved
+    // 11 = maximum number of subdivisions reached
+    if (gsl_errno == 14 or gsl_errno == 18 or gsl_errno == 11)
+        return;
+
+    // 15: underflows
+    if (gsl_errno == 15 ) return;
+
+    errors++;
+    std::cerr << file << ":"<< line <<": Error " << errors << ": " <<reason
+            << " (code " << gsl_errno << ")." << std::endl;
 }

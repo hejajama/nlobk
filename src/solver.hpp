@@ -22,6 +22,9 @@ class BKSolver
         double Kernel_nlo_2(double r, double v, double theta_v, double w, double theta_w);
         double Kernel_nlo_3(double r, double v, double theta_v, double w, double theta_w);
 
+        double RapidityDerivative_lo(double r);
+        double RapidityDerivative_nlo(double r);
+
         Dipole* GetDipole();
     private:
         Dipole* dipole;

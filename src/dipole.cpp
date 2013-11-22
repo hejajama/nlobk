@@ -6,6 +6,8 @@
 #include "dipole.hpp"
 #include "ic.hpp"
 #include <iostream>
+#include <iomanip>
+#include <fstream>
 
 using std::cerr; using std::cout; using std::endl;
 
@@ -18,15 +20,20 @@ using std::cerr; using std::cout; using std::endl;
 Dipole::Dipole(InitialCondition* ic)
 {
     // Initialize rvals
-    for (double r=1e-7; r<=50; r*=1.1)
+    std::vector<double> initial_amplitude;
+    for (double r=1e-4; r<=40; r*=1.6)
     {
         rvals.push_back(r);
+        initial_amplitude.push_back( ic->DipoleAmplitude(r) );
     }
+    amplitude.push_back(initial_amplitude);
     
     yvals.push_back(0);
 
+    // Initialize initial condition interpolator
     dipole_interp=NULL;
-
+    InitializeInterpolation(0);
+    cout << "Dipole is ready!" << endl;
 }
 
 /*
@@ -40,18 +47,20 @@ int Dipole::InitializeInterpolation(int yind)
     if (yind >= yvals.size())
     {
         cerr << "Rapidity index " << yind << " is too large, maxindex is " << yvals.size()-1 << LINEINFO << endl;
-        throw "Too large rapidity index!";
         return -1;
     }
 
     if (dipole_interp != NULL) // free old interpolator
     {
-        dipole_interp -> Clear();
         delete dipole_interp;
     }
 
     dipole_interp = new Interpolator(rvals, amplitude[yind]);
+    dipole_interp->SetUnderflow(0);
+    dipole_interp->SetOverflow(1.0);
+    dipole_interp->SetFreeze(true);
     dipole_interp->Initialize();
+    interpolator_yind = yind;
 
     return 0;
 
@@ -67,12 +76,15 @@ double Dipole::N(double r)
 {
     if (dipole_interp==NULL)
     {
-        throw "No dipole interpolator...";
         return -1;
     }
 
     return dipole_interp -> Evaluate(r);
+}
 
+double Dipole::S(double r)
+{
+    return 1.0-N(r);
 }
 
 /*
@@ -106,6 +118,35 @@ int Dipole::AddRapidity(double y, double rgrid[])
 
 }
 
+/*
+ * Save amplitude to the given file
+ *
+ * Syntax is the same as in rbk and AmplitudeLib
+ */
+int Dipole::Save(std::string filename)
+{
+    std::ofstream out;
+    out.open(filename.c_str());
+
+    out << "###" << std::scientific << std::setprecision(15) << MinR() << endl;
+    out << "###" << std::scientific << std::setprecision(15) <<
+        1.1  << endl;   // rmultiplier
+    out << "###" << RPoints() << endl;
+    out << "###0.01" << endl;   // x0
+
+    for (int yind=0; yind<YPoints(); yind++)
+    {
+        out << "###" << std::scientific << std::setprecision(15)
+            << yvals[yind] << endl;
+        for (int rind=0; rind<RPoints(); rind++)
+        {
+            out << std::scientific << std::setprecision(15)
+                << amplitude[yind][rind] << endl;
+        }
+    }
+    out.close();
+}
+
 
 double Dipole::MinR()
 {
@@ -121,8 +162,18 @@ unsigned int Dipole::RPoints()
     return rvals.size()-1;
 }
 
+unsigned int Dipole::YPoints()
+{
+    return yvals.size()-1;
+}
+
 double Dipole::RVal(unsigned int rind)
 {
+    if (rind < 0 or rind>rvals.size()-1)
+    {
+        cerr << "Invalid dipole size index " << rind << " at " << LINEINFO << endl;
+        return 0;
+    }
     return rvals[rind];
 }
 
@@ -133,9 +184,9 @@ double Dipole::YVal(unsigned int yind)
 
 Dipole::~Dipole()
 {
+    cout << "Destroying dipole..." << endl;
     if (dipole_interp != NULL)
     {
-        dipole_interp->Clear();
         delete dipole_interp;
     }
 }

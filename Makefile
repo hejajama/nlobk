@@ -1,4 +1,4 @@
-CXXFLAGS = `gsl-config --cflags` -O2 -fopenmp -pedantic -I ../amplitudelib  
+CXXFLAGS = `gsl-config --cflags` -g -fopenmp -pedantic -I ../amplitudelib  
 LDFLAGS = `gsl-config --libs` -lm 
 
 include filelist.m
