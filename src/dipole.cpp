@@ -21,7 +21,7 @@ Dipole::Dipole(InitialCondition* ic)
 {
     // Initialize rvals
     std::vector<double> initial_amplitude;
-    for (double r=1e-4; r<=40; r*=1.6)
+    for (double r=1e-4; r<=20; r*=1.1)
     {
         rvals.push_back(r);
         initial_amplitude.push_back( ic->DipoleAmplitude(r) );
@@ -33,7 +33,6 @@ Dipole::Dipole(InitialCondition* ic)
     // Initialize initial condition interpolator
     dipole_interp=NULL;
     InitializeInterpolation(0);
-    cout << "Dipole is ready!" << endl;
 }
 
 /*
@@ -130,11 +129,11 @@ int Dipole::Save(std::string filename)
 
     out << "###" << std::scientific << std::setprecision(15) << MinR() << endl;
     out << "###" << std::scientific << std::setprecision(15) <<
-        1.1  << endl;   // rmultiplier
+        rvals[1]/rvals[0]  << endl;   // rmultiplier
     out << "###" << RPoints() << endl;
     out << "###0.01" << endl;   // x0
 
-    for (int yind=0; yind<YPoints(); yind++)
+    for (int yind=0; yind<=YPoints(); yind++)
     {
         out << "###" << std::scientific << std::setprecision(15)
             << yvals[yind] << endl;

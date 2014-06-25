@@ -33,20 +33,24 @@ int main(int argc, char* argv[])
 {
 
     gsl_set_error_handler(&ErrHandler);
-    std::signal(SIGINT, SigIntHandler);
+    //std::signal(SIGINT, SigIntHandler);
 
     MV ic;
 	ic.SetQsqr(0.2);
-    cout << "Initial condition is " << ic.GetString() << endl;
+    cout << "#Initial condition is " << ic.GetString() << endl;
 
     Dipole dipole(&ic);
 
-    cout << "N(r=0.001)=" << dipole.N(0.001) <<", N(r=0.1)=" << dipole.N(0.1) <<", N(r=10)=" << dipole.N(10) << endl;
+
+    cout <<"# r grid size: " << dipole.RPoints() << " minr " << dipole.MinR() << " maxr " << dipole.MaxR() << endl;
+
+    //cout << "N(r=0.001)=" << dipole.N(0.001) <<", N(r=0.1)=" << dipole.N(0.1) <<", N(r=10)=" << dipole.N(10) << endl;
 
     BKSolver solver(&dipole);
-    solver.Solve(0.2);
+    solver.Solve(2);
+    cout << "BK solved!" << endl;
 
-	std::string output="solutions/nlobk_nlo_maxy02_korjattu.dat";
+	std::string output=std::string(argv[1]);
 
     cout << "Saving to file " << output << endl;
     dipole.Save(output);
@@ -59,7 +63,7 @@ int main(int argc, char* argv[])
 // User pressed ctrl+c or killed the program, save data
 void SigIntHandler(int param)
 {
-    cerr << endl << "# Received SigInt signal, trying to save data..." << endl;
+    //cerr << endl << "# Received SigInt signal, trying to save data..." << endl;
 
 
     exit(1);
