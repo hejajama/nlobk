@@ -8,7 +8,6 @@
 #define _BK_IC_DATAFILE_
 
 #include <string>
-#include <tools/config.hpp>
 #include <string>
 #include <tools/interpolation.hpp>
 #include "ic.hpp"
@@ -27,8 +26,10 @@ class IC_datafile : public InitialCondition
 		~IC_datafile();
 		double MinR();
 		double MaxR();
+        std::string GetString();
 	private:
 		Interpolator *interpolator;
+        std::string fname;
 };
 
 #endif

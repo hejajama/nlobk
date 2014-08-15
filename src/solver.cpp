@@ -21,35 +21,10 @@
 #include <gsl/gsl_monte_plain.h>
 
 // Integration constants
-const double MAXR=99;
 const double MINR=1e-7;
 const double eps = 1e-20;
 
-const int RINTPOINTS=20;
-const int THETAINTPOINTS = 20;
-const double INTACCURACY=0.1;
 
-
-const bool MONTECARLO = true;
-const size_t MCINTPOINTS = 1e7;
-
-// Alpha_s in LO part
-enum RunningCouplingLO
-{
-    FIXED_LO,
-    PARENT_LO,
-    BALITSKY_LO
-};
-enum RunningCouplingNLO
-{
-    FIXED_NLO,
-    PARENT_NLO
-};
-const double FIXED_AS = 0.05;
-
-
-const RunningCouplingLO RC_LO = BALITSKY_LO;
-const RunningCouplingNLO RC_NLO = PARENT_NLO;
 
 
 BKSolver::BKSolver(Dipole* d)
@@ -72,6 +47,7 @@ int BKSolver::Solve(double maxy)
 
     cout <<"#### Solving BK equation up to y=" << maxy <<", mcintpoints " << MCINTPOINTS << endl;
     cout << "# Nc=" << NC << ", Nf=" << NF << " alphas(r=1) = " << Alphas(1) << endl;
+    
 
     int vecsize = dipole->RPoints();
     double *ampvec = new double [vecsize];
@@ -81,7 +57,7 @@ int BKSolver::Solve(double maxy)
         ampvec[rind] = dipole->N( dipole->RVal(rind));
     }
 
-    double y=0; double step = 0.5;  // We have always solved up to y
+    double y=0; double step = DE_SOLVER_STEP;  // We have always solved up to y
     int yind=0;
 
     // Intialize GSL
@@ -133,25 +109,26 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 
 
     // Create interpolators for N(r) and S(r)=1-N(r)
-    std::vector<double> rvals,yvals,yvals_s;
+    std::vector<double> rvals,nvals,yvals_s;
     double maxr_interp=-1; // at r>maxr N==1 and S==0
     for (int i=0; i<dipole->RPoints(); i++)
     {
         rvals.push_back(dipole->RVal(i));
-        yvals.push_back(amplitude[i]);
 
-        
-        
-        double s = 1.0-amplitude[i];
+        double n = amplitude[i];
+        if (n>1.0) n=1.0;
+        if (n<0) n=0;
+        nvals.push_back(n);
 
-        if (amplitude[i]>0.999)
+        if (amplitude[i]>0.9999)
             maxr_interp = dipole->RVal(i);
         
+        double s = 1.0-amplitude[i];
         if (s<0) s=0;
         if (s>1) s=1.0;
         yvals_s.push_back(s);
     }
-    Interpolator interp(rvals,yvals);
+    Interpolator interp(rvals,nvals);
     interp.Initialize();
     interp.SetFreeze(true);
     interp.SetUnderflow(0);
@@ -164,43 +141,43 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
     interp_s.SetOverflow(0.0);
 
   
-    if (maxr_interp>0)
-        interp_s.SetMaxX(maxr_interp);
+    //if (maxr_interp>0)
+    //    interp_s.SetMaxX(maxr_interp);
 
 
     int ready=0;
+    // r=38.72 i=135
 	#pragma omp parallel for
-    for (unsigned int i=0; i< dipole->RPoints(); i++)
+    for (unsigned int i=0; i< dipole->RPoints(); i+=1)
     {
-        //cout << "Starting: " << i << endl;
-        //i=45;
-        //cout << "#r=" << dipole->RVal(i) << " N=" << amplitude[i] << " (interp. " << interp.Evaluate(dipole->RVal(i)) <<")" <<  endl;
+        //#pragma omp critical
+        //cout <<"# r=" << dipole->RVal(i) << endl;
 
         // Let us freeze evolution of large dipoles....
-        if (amplitude[i]>0.999)
+        /*if (amplitude[i]>0.99999)
         {
             dydt[i]=0;
             continue;
-        }
+        }*/
          
         //cout << "Dipole size: " << dipole->RVal(i) << endl;
         double lo = par->solver->RapidityDerivative_lo(dipole->RVal(i), &interp);
 
         double nlo=0;
-        //nlo = par->solver->RapidityDerivative_nlo(dipole->RVal(i), &interp, &interp_s);
+        nlo = par->solver->RapidityDerivative_nlo(dipole->RVal(i), &interp, &interp_s);
 
         //cout << "r= " << dipole->RVal(i) << " dN/dy=" << lo+nlo << " lo " << lo << " nlo " << nlo << endl;
 
         //#pragma omp critical
-        //    cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
+            //cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
         dydt[i]= lo + nlo;
 
-        //#pragma omp critical
-        //{
+        #pragma omp critical
+        {
             ready++;
-            if (ready%50==0)
+            if (ready%72==0)
                 cout << "# y=" << y <<", ready " << ready << " / " << dipole->RPoints() << endl;
-        //}
+        }
         //exit(1);
         
     }
@@ -345,6 +322,8 @@ double Inthelperf_lo_theta(double theta, void* p)
 
 double BKSolver::Kernel_lo(double r, double z, double theta)
 {
+    const double musqr = 1;   // scale in NLO part of LO kernel
+    
     // Y = y-z = z
     double Y=z;
     // X = x-z = r - z
@@ -380,7 +359,25 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         return -1;
     }
 
-    
+    // Add double log
+    // Currently only supports fixed as)
+    if (RC_LO == FIXED_LO and DOUBLELOG_LO_KERNEL)
+    {
+        result *= (1.0 + FIXED_AS * NC / (4.0*M_PI)  *
+                    (
+                    11.0/3.0*std::log(SQR(r))*musqr
+                    -11.0/3.0 * (SQR(X) - SQR(Y) ) / SQR(r) * std::log( SQR(X/Y) )
+                    + 67.0/9.0 - SQR(M_PI)/3.0
+                    -2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) )
+                    )
+                );
+    }
+
+    if (isnan(result) or isinf(result))
+    {
+        cerr << "infnan " << LINEINFO << ", r=" << r << ", X=" << X << ", Y=" << Y << endl;
+        exit(1);
+    }
     
 
     return result;
@@ -466,8 +463,8 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
         int seconds=difftime(timer, 0);
         gsl_rng_set(rnd, seconds);
 
-
         /*
+        
         const int maxiter_vegas=10;
 
 
@@ -499,7 +496,7 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
         gsl_monte_vegas_free(s);
         */
 
-
+    
         
         // plain or miser
         //gsl_monte_plain_state *s = gsl_monte_plain_alloc (4);
@@ -509,7 +506,7 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
         do
         {
             iter++;
-            if (iter>=20)
+            if (iter>=5)
             {
                 cerr << "Mcintegral didn't converge in 20 iterations (r=" << r << "), result->0 " << LINEINFO << endl;
                 return 0;
@@ -518,19 +515,28 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
             gsl_monte_miser_integrate
                 (&fun, min, max, 4, calls, rnd, s,
                                    &result, &abserr);
-                //if (std::abs(abserr/result)>0.1)
-                //      cout << "#r=" << r << " misermc integral failed, result " << result << " relerr " << std::abs(abserr/result) << ", again.... (iter " << iter << ")" << endl;
-        } while (std::abs(abserr/result)>0.1);
+                if (std::abs(abserr/result)>0.2)
+                      cerr << "#r=" << r << " misermc integral failed, result " << result << " relerr " << std::abs(abserr/result) << ", again.... (iter " << iter << ")" << endl;
+        } while (std::abs(abserr/result)>0.2);
         //gsl_monte_plain_free (s);
         gsl_monte_miser_free(s);
-        //cout <<"#Integration finished, r=" << r <<", result " << result << " relerr " << abserr/result << " intpoints " << calls << endl;
+        //cout <<"#Integration finished at iter=" << iter <<", r=" << r <<", result " << result << " relerr " << abserr/result << " intpoints " << calls << endl;
         
         gsl_rng_free(rnd);
         
-        
+           
     }
     
-    result *= SQR(Alphas(r)*NC) / (8.0*std::pow(M_PI,4) );
+    
+    if (RC_NLO == FIXED_NLO)
+        result *= SQR(FIXED_AS*NC) / (8.0*std::pow(M_PI,4) );
+    else if (RC_NLO == PARENT_NLO)
+        result *= SQR( Alphas(r) * NC) / (8.0 * std::pow(M_PI, 4) );
+    else
+    {
+        cerr << "Unknown NLO kernel alphas! " << LINEINFO << endl;
+        return -1;
+    }
 
     // used for arxiv version evolution for s
 	//result *= -SQR(Alphas(r)*NC) / ( 16.0*M_PI*M_PI*M_PI*M_PI);   // alpha_s^2 Nc^2/(16pi^4), alphas*nc/pi=ALPHABAR_s
@@ -636,16 +642,17 @@ double Inthelperf_nlo_theta_z2(double theta_z2, void* p)
 }
 
 double Inthelperf_nlo(double r, double z, double theta_z, double z2, double theta_z2, BKSolver* solver, Interpolator* dipole_interp, Interpolator* dipole_interp_s)
-{
+{   
+    // we choose coordinates s.t. y=0 and x lies on positive x axis
     // X = x-z = -z + r
     double X = std::sqrt(r*r + z*z - 2.0*r*z*std::cos(theta_z));  
     // Y = y-z = z
     double Y = z;
-    // X' = x-z' = w
+    // X' = x-z' = r - z'
     double X2=std::sqrt(r*r + z2*z2 - 2.0*r*z2*std::cos(theta_z2) );
-    // Y' = y-z' = w-r
+    // Y' = y-z' = -z'
     double Y2=z2;
-    // z - z' = w - v
+    // z - z'
     double z_m_z2 = std::sqrt( z*z + z2*z2 - 2.0*z*z2*std::cos(theta_z - theta_z2) );
 
     
@@ -654,24 +661,39 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
     double k = solver->Kernel_nlo(r,X,Y,X2,Y2,z_m_z2);
     double kswap = solver->Kernel_nlo(r,X2,Y2,X,Y,z_m_z2);
 
-    result = 0.5* ( k*(dipole_interp->Evaluate(z_m_z2)
+    double dipole = dipole_interp->Evaluate(z_m_z2)
                         - dipole_interp->Evaluate(X)*dipole_interp->Evaluate(z_m_z2)
                         - dipole_interp->Evaluate(z_m_z2)*dipole_interp->Evaluate(Y2)
                         - dipole_interp->Evaluate(X)*dipole_interp->Evaluate(Y2)
                         + dipole_interp->Evaluate(X)*dipole_interp->Evaluate(Y)
                         + dipole_interp->Evaluate(X)*dipole_interp->Evaluate(z_m_z2)*dipole_interp->Evaluate(Y2)
-                        )
-                    + kswap*(dipole_interp->Evaluate(z_m_z2)
+                        + dipole_interp->Evaluate(Y2) - dipole_interp->Evaluate(Y); // This is not part of eq. (136) in PRD
+                        
+    double dipole_swap = dipole_interp->Evaluate(z_m_z2)
                         - dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(z_m_z2)
                         - dipole_interp->Evaluate(z_m_z2)*dipole_interp->Evaluate(Y)
                         - dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(Y)
                         + dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(Y2)
                         + dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(z_m_z2)*dipole_interp->Evaluate(Y)
-                        )
-                );
-                        
+                        + dipole_interp->Evaluate(Y) - dipole_interp->Evaluate(Y2);
+
+    //result = k*dipole;
+    result = (k*dipole + kswap*dipole_swap)/2.0;
 
 
+    //if (X>20 and Y>20 and X2>20 and Y2>20 and z_m_z2<5)    
+    //    cout << X << " " << Y << " " << X2 << " " << Y2 << " " << z_m_z2 << " " << result*z*z2 << " " << k*z*z2 << " " << dipole << endl;
+
+    /*if ( Y<1 and Y2<1 )
+    {
+        //cout << k << " " << dipole << " " << z*z2*k*dipole << endl;
+        ////cout << X << " " << Y << " " << X2 << " " << Y2 << " " << z_m_z2 << " " << result*z*z2 << " " << k*z*z2 << " " << dipole << endl;
+        //cout << k*dipole << " " << kswap*dipole_swap << endl;
+        return result;
+    }
+    else
+        return 0;
+*/
     /*  EVOLUTION FOR S FROM ARXIV VERSION
 
     ////////// K1 /////////////
@@ -705,14 +727,6 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
     
     result = 0.5*((k1+k1_swap) + (k2+k2_swap) + NF*(k3 + k3_swap));
 
-    if ( result > 100000000000 and false )
-    {
-            //cout <<"=========== r=" << r << " =============="<<endl;
-            cout << result << " (k1: " << k1+k1_swap <<" k2: " << k2+k2_swap <<"),   X " << X << " Y " << Y << " X2 " << X2 << " Y2 " << Y2 << " tehta1/pi " << theta_z/M_PI << " theta2/pi " << theta_z2/M_PI << " z-z2 " << z_m_z2 << endl;
-            //cout << "     d1: " <<  ( dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y2)
-            //- dipole_interp_s->Evaluate(X)*dipole_interp_s->Evaluate(Y) ) << "  d2: " << dipole_interp_s->Evaluate(X)*dipole_interp_s->Evaluate(z_m_z2)*dipole_interp_s->Evaluate(Y2) << endl;
-            //cout <<"=========================="<<endl;
-    }
 
 	*/
   
@@ -720,8 +734,8 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
 
 	if (isnan(result) or isinf(result))
 	{
-        if (X>10 and Y>10 and X2>10 and Y2>10)  // dipole part vanishes??????
-            return 0;
+        //if (X>10 and Y>10 and X2>10 and Y2>10)  // dipole part vanishes??????
+        //    return 0;
             
         cerr << "infnan at " << LINEINFO << ": X="<<X<<", Y=" << Y <<",X2=" << X2 << ", Y2=" << Y2 <<", z-z'=" << z_m_z2 << " r " << r << " z " << z << " z2 " << z2 << " theta_z " << theta_z << " theta_z2 " << theta_z2 << endl;
         exit(1);
@@ -749,18 +763,13 @@ double Inthelperf_nlo_mc(double* vec, size_t dim, void* p)
     if (dim != 4)
     {
         cerr << "Insane dimension at " << LINEINFO << ": " << dim << endl;
-        cerr << "vec0: " << vec[0] << " vec 1 " << vec[1] << " vec2 " << vec[2] << " vec3 " << vec[3] << endl;
         exit(1);
-        return 0;
     }
 
     double integrand = Inthelperf_nlo(helper->r, std::exp(vec[0]), vec[2], std::exp(vec[1]), vec[3], helper->solver, helper->dipole_interp, helper->dipole_interp_s)
         * std::exp(2.0*vec[0]) * std::exp(2.0*vec[1]);  // Jacobian
 
-    //cout << vec[0] << " " << vec[1] << " " << integrand << endl;
-
-    //if (std::abs(integrand)>5000)
-    //    cout << integrand << " z " << std::exp(vec[0]) << " z2 " << std::exp(vec[1]) << " theta_1/pi " << vec[2]/M_PI << " theta_2/pi " << vec[3]/M_PI << endl;
+    //cout << std::exp(vec[0]) << " " << std::exp(vec[1]) << " " << integrand << endl;
 
     return integrand; 
     
@@ -865,10 +874,13 @@ double BKSolver::Kernel_nlo_3(double r, double X, double Y, double X2, double Y2
  */
 double BKSolver::Kernel_nlo(double r, double X, double Y, double X2, double Y2, double z_m_z2)
 {
-    if (z_m_z2 < 0.00001)
-    	return 0;
-    if (std::abs(X-X2)<0.00001 and std::abs(Y-Y2)<0.00001)  // this is probably != 0, but finite and small phasespace
-		return 0;
+
+    
+    
+    //if (z_m_z2 < 0.00001)
+    //	return 0;
+    //if (std::abs(X-X2)<0.00001 and std::abs(Y-Y2)<0.00001)  // this is probably != 0, but finite and small phasespace
+	//	return 0;
 
     double kernel = -2.0/std::pow(z_m_z2,4);
 
@@ -877,6 +889,13 @@ double BKSolver::Kernel_nlo(double r, double X, double Y, double X2, double Y2, 
         + std::pow(r,4) / ( SQR(X*Y2)*( SQR(X*Y2) - SQR(X2*Y) ) )
         + SQR(r) / ( SQR(X*Y2*z_m_z2) )
         ) * std::log( SQR(X*Y2/(X2*Y)) );
+
+    if (isnan(kernel) or isinf(kernel))
+    {
+        cerr << "Kernel " << kernel <<", r=" << r <<", X=" << X << ", Y=" << Y <<", X2=" << X2 <<", Y2=" << Y2 <<", z-z2=" << z_m_z2 << endl;
+        return 0;
+    }
+    
     return kernel;
 }
 

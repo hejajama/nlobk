@@ -6,6 +6,7 @@
 
 #include "ic.hpp"
 #include "mv.hpp"
+#include "ic_datafile.hpp"
 #include "dipole.hpp"
 #include "solver.hpp"
 #include <csignal>
@@ -37,6 +38,10 @@ int main(int argc, char* argv[])
 
     MV ic;
 	ic.SetQsqr(0.2);
+    //IC_datafile ic;
+    //ic.LoadFile("./testit/n_evoluutio/amplitudit/ratio_1e6_lo_fixed_nlo_fixed_005_kaikkidipolit_y_5");
+    
+    
     cout << "#Initial condition is " << ic.GetString() << endl;
 
     Dipole dipole(&ic);
@@ -47,7 +52,7 @@ int main(int argc, char* argv[])
     //cout << "N(r=0.001)=" << dipole.N(0.001) <<", N(r=0.1)=" << dipole.N(0.1) <<", N(r=10)=" << dipole.N(10) << endl;
 
     BKSolver solver(&dipole);
-    solver.Solve(2);
+    solver.Solve(10);
     cout << "BK solved!" << endl;
 
 	std::string output=std::string(argv[1]);
@@ -67,29 +72,4 @@ void SigIntHandler(int param)
 
 
     exit(1);
-}
-
-
-
-int errors;
-void ErrHandler(const char * reason,
-                        const char * file,
-                        int line,
-                        int gsl_errno)
-{
-    
-    // Errors related to convergence of integrals are handled when
-    // gsl_integration functions are called, don't do anything with them here
-    // 14 = failed to reach tolerance
-    // 18 = roundoff error prevents tolerance from being achieved
-    // 11 = maximum number of subdivisions reached
-    if (gsl_errno == 14 or gsl_errno == 18 or gsl_errno == 11)
-        return;
-
-    // 15: underflows
-    if (gsl_errno == 15 ) return;
-
-    errors++;
-    std::cerr << file << ":"<< line <<": Error " << errors << ": " <<reason
-            << " (code " << gsl_errno << ")." << std::endl;
 }

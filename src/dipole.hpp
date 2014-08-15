@@ -22,7 +22,7 @@
 class Dipole
 {
     public:
-        Dipole(InitialCondition* ic);             // Initialize from a given ic
+        Dipole(InitialCondition* ic_);             // Initialize from a given ic
         ~Dipole();
         int InitializeInterpolation(int yind);
             // Create interpolator of dipole amplitude values at rapidity yvals[i]
@@ -47,10 +47,11 @@ class Dipole
         std::vector< std::vector<double > > amplitude;   
         std::vector< double > yvals; 
         std::vector< double > rvals;
+        InitialCondition* ic;
 
         Interpolator* dipole_interp;        // Initialized interpolator to evaluate N(r)
         unsigned int interpolator_yind;     // Rapidity index at which the interpolator is initialized
 };
 
-
+const std::string VERSION = "0.0-dev";
 #endif

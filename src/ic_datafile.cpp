@@ -4,7 +4,6 @@
  * Heikki Mäntysaari <heikki.mantysaari@jyu.fi>, 2012
  */
 
-#include <tools/config.hpp>
 #include <tools/tools.hpp>
 #include "ic_datafile.hpp"
 #include <string>
@@ -29,6 +28,7 @@ double IC_datafile::DipoleAmplitude(double r, double b)
  */
 int IC_datafile::LoadFile(std::string file)
 {
+    fname=file;
     std::ifstream f(file.c_str());
     if (!f.is_open())
     {
@@ -51,7 +51,7 @@ int IC_datafile::LoadFile(std::string file)
 		nvals.push_back(StrToReal(n));
     }
     f.close();
-    cout << "# Loaded data from file " << file << ", in total " << nvals.size() <<" points, minr=" << rvals[0] <<"; maxr=" << rvals[rvals.size()-1] << endl;
+    //cout << "# Loaded data from file " << file << ", in total " << nvals.size() <<" points, minr=" << rvals[0] <<"; maxr=" << rvals[rvals.size()-1] << endl;
     
     // Interpolator
     interpolator = new Interpolator(rvals, nvals);
@@ -63,6 +63,12 @@ int IC_datafile::LoadFile(std::string file)
     return 0;
 }
 
+std::string IC_datafile::GetString()
+{
+    std::stringstream ss;
+    ss << "datafile " << fname << ", number of points " << interpolator->GetNumOfPoints() << " minr " << interpolator->MinX() << " maxr " << interpolator->MaxX() << endl;
+    return ss.str();
+}
 
 IC_datafile::IC_datafile()
 {

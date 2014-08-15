@@ -5,9 +5,11 @@
 
 #include "dipole.hpp"
 #include "ic.hpp"
+#include "nlobk_config.hpp"
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <sstream>
 
 using std::cerr; using std::cout; using std::endl;
 
@@ -15,13 +17,15 @@ using std::cerr; using std::cout; using std::endl;
 /*
  * Constructor
  * Parameter: Initial condition
+ * Pointer to the initial condition is saved and used in Save() method.
  */
 
-Dipole::Dipole(InitialCondition* ic)
+Dipole::Dipole(InitialCondition* ic_)
 {
+    ic=ic_;
     // Initialize rvals
     std::vector<double> initial_amplitude;
-    for (double r=1e-4; r<=20; r*=1.1)
+    for (double r=1e-4; r<=MAXR; r*=1.1)
     {
         rvals.push_back(r);
         initial_amplitude.push_back( ic->DipoleAmplitude(r) );
@@ -126,6 +130,34 @@ int Dipole::Save(std::string filename)
 {
     std::ofstream out;
     out.open(filename.c_str());
+
+    // Save info
+    out << "# NLO BK equation solver " << VERSION << " build " << " (build " <<  __DATE__ << " " << __TIME__ << ")" << endl;
+    out <<"# Initial condition: " << ic->GetString() << endl;
+
+    std::string lokernel,nlokernel;
+    if (RC_LO == FIXED_LO)
+    {
+        std::stringstream ss;
+        ss << "fixed as=" << FIXED_AS;
+        lokernel=ss.str();
+    }
+    if (RC_LO == BALITSKY_LO)
+        lokernel="balitsky";
+    if (RC_LO == PARENT_LO)
+        lokernel="parent";
+    
+    if (RC_NLO == FIXED_NLO)
+    {
+        std::stringstream ss;
+        ss << "fixed as=" << FIXED_AS;
+        nlokernel=ss.str();
+    }
+
+    out << "# LO kernel: " << lokernel << ", NLO kernel: " << nlokernel << endl;
+    if (MONTECARLO)
+        out << "# Integration method: Montecarlo, intpoints=" << MCINTPOINTS << endl;
+    else out << "# Integration methods: nested integrals" << endl;
 
     out << "###" << std::scientific << std::setprecision(15) << MinR() << endl;
     out << "###" << std::scientific << std::setprecision(15) <<
