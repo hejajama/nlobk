@@ -22,7 +22,7 @@ std::string version = "0.01-dev";
 // We need global variables so that the signal handler works
 std::string output="output.dat";
 
-
+std::string NLOBK_CONFIG_STRING();
 void SaveData();
 void SigIntHandler(int param);
 void ErrHandler(const char * reason,
@@ -41,7 +41,7 @@ int main(int argc, char* argv[])
     //IC_datafile ic;
     //ic.LoadFile("./testit/n_evoluutio/amplitudit/ratio_1e6_lo_fixed_nlo_fixed_005_kaikkidipolit_y_5");
     
-    
+    cout << "# " << NLOBK_CONFIG_STRING() << endl;
     cout << "#Initial condition is " << ic.GetString() << endl;
 
     Dipole dipole(&ic);
@@ -72,4 +72,36 @@ void SigIntHandler(int param)
 
 
     exit(1);
+}
+
+std::string NLOBK_CONFIG_STRING()
+{
+    std::stringstream ss;
+    ss << "Integration method: ";
+    if (MONTECARLO)
+        ss <<"MonteCarlo, points=" << MCINTPOINTS;
+    else
+        ss <<"Direct integration";
+    ss<< ". LO Kernel RC: ";
+    if (RC_LO == FIXED_LO)
+        ss << " fixed as=" << FIXED_AS;
+    else if (RC_LO == SMALLEST_LO)
+        ss << " smallest dipole";
+    else
+        ss << " NO STRING IMPLEMENTED!";
+
+    ss<< ". NLO Kernel RC: ";
+    if (RC_NLO == FIXED_NLO)
+        ss << " fixed as=" << FIXED_AS;
+    else if (RC_NLO == SMALLEST_NLO)
+        ss << " smallest dipole";
+    else
+        ss << " NO STRING IMPLEMENTED!";
+
+    ss <<". Nc=" << NC << ", Nf=" << NF;
+
+    if (DOUBLELOG_LO_KERNEL) ss << ". Double log term in LO kernel included";
+    else ss << ". Double log term in LO kernel NOT included";
+
+    return ss.str();
 }

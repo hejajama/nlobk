@@ -21,11 +21,7 @@
 #include <gsl/gsl_monte_plain.h>
 
 // Integration constants
-const double MINR=1e-7;
 const double eps = 1e-20;
-
-
-
 
 BKSolver::BKSolver(Dipole* d)
 {
@@ -141,8 +137,8 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
     interp_s.SetOverflow(0.0);
 
   
-    //if (maxr_interp>0)
-    //    interp_s.SetMaxX(maxr_interp);
+    if (maxr_interp>0)
+        interp_s.SetMaxX(maxr_interp);
 
 
     int ready=0;
@@ -168,8 +164,8 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 
         //cout << "r= " << dipole->RVal(i) << " dN/dy=" << lo+nlo << " lo " << lo << " nlo " << nlo << endl;
 
-        //#pragma omp critical
-            //cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
+        #pragma omp critical
+            cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
         dydt[i]= lo + nlo;
 
         #pragma omp critical
@@ -181,7 +177,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         //exit(1);
         
     }
-    //exit(1);
+    exit(1);
 
     return GSL_SUCCESS;
 }
@@ -338,7 +334,21 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 
     // Running coupling
     if (RC_LO == FIXED_LO)
+    {
         result = FIXED_AS * NC/(2.0*M_PI*M_PI) *  r*r / (X*X * Y*Y);
+
+        if (DOUBLELOG_LO_KERNEL)
+        {
+            result *= (1.0 + FIXED_AS * NC / (4.0*M_PI)  *
+                    (
+                    11.0/3.0*std::log(SQR(r))*musqr
+                    -11.0/3.0 * (SQR(X) - SQR(Y) ) / SQR(r) * std::log( SQR(X/Y) )
+                    + 67.0/9.0 - SQR(M_PI)/3.0
+                    -2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) )
+                    )
+                );
+        }
+    }
     else if (RC_LO == PARENT_LO)
         result = Alphas(r)*NC/(2.0*M_PI*M_PI) *  r*r / (X*X * Y*Y);
     else if (RC_LO == BALITSKY_LO)
@@ -353,24 +363,20 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
             + 1.0/SQR(X)*(alphas_x/alphas_y - 1.0)
             );
     }
+    else if (RC_LO == SMALLEST_LO)
+    {
+        double min_size = r;
+        if (X < min_size) min_size = X;
+        if (Y < min_size) min_size = Y;
+        result *= Alphas(min_size)*NC/(2.0*M_PI*M_PI) *  r*r / (X*X * Y*Y);
+        if (DOUBLELOG_LO_KERNEL)
+            result *= (1.0 + + 67.0/9.0 - SQR(M_PI)/3.0
+                    -2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) ) );
+    }
     else
     {
         cerr << "Unknown LO kernel RC! " << LINEINFO << endl;
         return -1;
-    }
-
-    // Add double log
-    // Currently only supports fixed as)
-    if (RC_LO == FIXED_LO and DOUBLELOG_LO_KERNEL)
-    {
-        result *= (1.0 + FIXED_AS * NC / (4.0*M_PI)  *
-                    (
-                    11.0/3.0*std::log(SQR(r))*musqr
-                    -11.0/3.0 * (SQR(X) - SQR(Y) ) / SQR(r) * std::log( SQR(X/Y) )
-                    + 67.0/9.0 - SQR(M_PI)/3.0
-                    -2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) )
-                    )
-                );
     }
 
     if (isnan(result) or isinf(result))
@@ -408,9 +414,6 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
     helper.dipole_interp;
     helper.dipole_interp = dipole_interp;
     helper.dipole_interp_s = dipole_interp_s;
-    
-    //Inthelperf_nlo(0.001, 0.002, 1, 1e-5, 2, this, dipole_interp, dipole_interp_s);
-    //exit(1);
     
     
     double minlnr = std::log( 0.5*dipole->MinR() );
@@ -532,14 +535,19 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
         result *= SQR(FIXED_AS*NC) / (8.0*std::pow(M_PI,4) );
     else if (RC_NLO == PARENT_NLO)
         result *= SQR( Alphas(r) * NC) / (8.0 * std::pow(M_PI, 4) );
+    else if (RC_NLO == SMALLEST_NLO)
+    {
+        // Multiply in the integrand!   
+    }
     else
     {
         cerr << "Unknown NLO kernel alphas! " << LINEINFO << endl;
         return -1;
     }
+    
 
     // used for arxiv version evolution for s
-	//result *= -SQR(Alphas(r)*NC) / ( 16.0*M_PI*M_PI*M_PI*M_PI);   // alpha_s^2 Nc^2/(16pi^4), alphas*nc/pi=ALPHABAR_s
+	//result *= -SQR(FIXED_AS*NC) / ( 16.0*M_PI*M_PI*M_PI*M_PI);   // alpha_s^2 Nc^2/(16pi^4), alphas*nc/pi=ALPHABAR_s
         // minus sign as we compute here evolution for S=1-N following ref 0710.4330
     
     return result;
@@ -661,6 +669,7 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
     double k = solver->Kernel_nlo(r,X,Y,X2,Y2,z_m_z2);
     double kswap = solver->Kernel_nlo(r,X2,Y2,X,Y,z_m_z2);
 
+    
     double dipole = dipole_interp->Evaluate(z_m_z2)
                         - dipole_interp->Evaluate(X)*dipole_interp->Evaluate(z_m_z2)
                         - dipole_interp->Evaluate(z_m_z2)*dipole_interp->Evaluate(Y2)
@@ -676,26 +685,41 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
                         + dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(Y2)
                         + dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(z_m_z2)*dipole_interp->Evaluate(Y)
                         + dipole_interp->Evaluate(Y) - dipole_interp->Evaluate(Y2);
-
+    
     //result = k*dipole;
     result = (k*dipole + kswap*dipole_swap)/2.0;
 
 
-    //if (X>20 and Y>20 and X2>20 and Y2>20 and z_m_z2<5)    
-    //    cout << X << " " << Y << " " << X2 << " " << Y2 << " " << z_m_z2 << " " << result*z*z2 << " " << k*z*z2 << " " << dipole << endl;
+    // If the alphas scale is set by the smallest dipole, multiply the kernel here by as^2 and
+    // other relevant factors
+    if (RC_NLO == SMALLEST_NLO)
+    {   
+        double min_size = r;
+        if (X < min_size) min_size = X;
+        if (Y < min_size) min_size = Y;
+        if (X2 < min_size) min_size=X2;
+        if (Y2 < min_size) min_size = Y2;
 
-    /*if ( Y<1 and Y2<1 )
-    {
-        //cout << k << " " << dipole << " " << z*z2*k*dipole << endl;
-        ////cout << X << " " << Y << " " << X2 << " " << Y2 << " " << z_m_z2 << " " << result*z*z2 << " " << k*z*z2 << " " << dipole << endl;
-        //cout << k*dipole << " " << kswap*dipole_swap << endl;
-        return result;
+        result *= SQR( solver->Alphas(min_size) * NC) / (8.0 * std::pow(M_PI, 4) );
     }
-    else
-        return 0;
-*/
-    /*  EVOLUTION FOR S FROM ARXIV VERSION
+    
+    
+    // Symmetric dipole
+    /*
+    double dipole = dipole_interp->Evaluate(X) + dipole_interp->Evaluate(z_m_z2) + dipole_interp->Evaluate(Y2)
+        - 0.5*( dipole_interp->Evaluate(X) + dipole_interp->Evaluate(X2) + dipole_interp->Evaluate(Y) + dipole_interp->Evaluate(Y2) )
+        - dipole_interp->Evaluate(X)*dipole_interp->Evaluate(z_m_z2) - dipole_interp->Evaluate(X)*dipole_interp->Evaluate(Y2)
+            - dipole_interp->Evaluate(z_m_z2)*dipole_interp->Evaluate(Y2)
+        + 0.5*( dipole_interp->Evaluate(X)*dipole_interp->Evaluate(Y) + dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(Y2) )
+        + dipole_interp->Evaluate(X)*dipole_interp->Evaluate(z_m_z2)*dipole_interp->Evaluate(Y2);
+    result=k*dipole;
+    */
+    
 
+    //  EVOLUTION FOR S FROM ARXIV VERSION
+
+
+    /*
     ////////// K1 /////////////
     double k1 = solver->Kernel_nlo_1(r,X,Y,X2,Y2,z_m_z2)
         * ( dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y2)
@@ -726,7 +750,6 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
         (dipole_interp_s->Evaluate(X)*dipole_interp_s->Evaluate(Y2) - dipole_interp_s->Evaluate(X2)*dipole_interp_s->Evaluate(Y2) );
     
     result = 0.5*((k1+k1_swap) + (k2+k2_swap) + NF*(k3 + k3_swap));
-
 
 	*/
   
@@ -788,10 +811,10 @@ double BKSolver::Kernel_nlo_1(double r, double X, double Y, double X2, double Y2
     double kernel=0;
 
 	// These limits give vanishing contribution (I hope)
-	if (z_m_z2 < 0.000001)
-		return 0;
-	if (std::abs(X-X2)<0.00001 and std::abs(Y-Y2)<0.00001)  // this is actually != 0, but finite and small phasespace
-		return 0;
+	//if (z_m_z2 < 0.000001)
+	//	return 0;
+	//if (std::abs(X-X2)<0.00001 and std::abs(Y-Y2)<0.00001)  // this is actually != 0, but finite and small phasespace
+	//	return 0;
 
     ///TODO: Check divergences/limits
     kernel = 2.0* ( SQR(X*Y2) + SQR(X2*Y) - 4.0*SQR(z_m_z2 * r)) / ( std::pow(z_m_z2,4.0) * (X*X * Y2*Y2 - X2*X2 * Y*Y) );
@@ -826,8 +849,8 @@ double BKSolver::Kernel_nlo_2(double r, double X, double Y, double X2, double Y2
 
     double kernel=0;
     
-    if (z_m_z2 < 0.00001)
-    	return 0;
+    //if (z_m_z2 < 0.00001)
+    //	return 0;
 
     kernel = SQR(r / z_m_z2) * ( 1.0/SQR(X*Y2) + 1.0/SQR(Y*X2) );
     kernel -= std::pow(r,4.0) / SQR(X*Y*X2*Y2);
@@ -848,11 +871,11 @@ double BKSolver::Kernel_nlo_2(double r, double X, double Y, double X2, double Y2
  
 double BKSolver::Kernel_nlo_3(double r, double X, double Y, double X2, double Y2, double z_m_z2)
 {
-    if (z_m_z2 < 0.00001)
-    	return 0;
+    //if (z_m_z2 < 0.00001)
+    //	return 0;
 
-    if (std::abs(X-X2)<0.00001 and std::abs(Y-Y2)<0.00001)
-        return 0;
+    //if (std::abs(X-X2)<0.00001 and std::abs(Y-Y2)<0.00001)
+     //   return 0;
 
     double kernel = 4.0/SQR(z_m_z2);
 
@@ -892,7 +915,7 @@ double BKSolver::Kernel_nlo(double r, double X, double Y, double X2, double Y2, 
 
     if (isnan(kernel) or isinf(kernel))
     {
-        cerr << "Kernel " << kernel <<", r=" << r <<", X=" << X << ", Y=" << Y <<", X2=" << X2 <<", Y2=" << Y2 <<", z-z2=" << z_m_z2 << endl;
+        //cerr << "Kernel " << kernel <<", r=" << r <<", X=" << X << ", Y=" << Y <<", X2=" << X2 <<", Y2=" << Y2 <<", z-z2=" << z_m_z2 << endl;
         return 0;
     }
     
@@ -908,11 +931,9 @@ double BKSolver::Alphas(double r)
 	double rsqr = r*r;
 	double maxalphas=0.7;
 	double lambdaqcd=0.241;
-
-    ///TODO: here we fix by hand nf=3
         
 	if (scalefactor/(rsqr*lambdaqcd*lambdaqcd) < 1.0) return maxalphas;
-	double alpha = 12.0*M_PI/( (11.0*NC-2.0*3.0)*std::log(scalefactor/ (rsqr*lambdaqcd*lambdaqcd) ) );
+	double alpha = 12.0*M_PI/( (11.0*NC-2.0*NF)*std::log(scalefactor/ (rsqr*lambdaqcd*lambdaqcd) ) );
 	if (alpha>maxalphas)
 		return maxalphas;
 	return alpha;

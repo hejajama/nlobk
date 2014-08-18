@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <fstream>
 #include <sstream>
+#include <cmath>
 
 using std::cerr; using std::cout; using std::endl;
 
@@ -24,8 +25,9 @@ Dipole::Dipole(InitialCondition* ic_)
 {
     ic=ic_;
     // Initialize rvals
+    double step = std::pow(MAXR/MINR, 1.0/RPOINTS);
     std::vector<double> initial_amplitude;
-    for (double r=1e-4; r<=MAXR; r*=1.1)
+    for (double r=MINR; r<=MAXR; r*=step)
     {
         rvals.push_back(r);
         initial_amplitude.push_back( ic->DipoleAmplitude(r) );
@@ -82,11 +84,18 @@ double Dipole::N(double r)
         return -1;
     }
 
+    double n = dipole_interp->Evaluate(r);
+    if (n<0) return 0;
+    if (n>=1.0) return 1.0;
+
     return dipole_interp -> Evaluate(r);
 }
 
 double Dipole::S(double r)
 {
+    double s=1.0-N(r);
+    if (s<0) return 0;
+    if (s>1.0) return 1.0;
     return 1.0-N(r);
 }
 
