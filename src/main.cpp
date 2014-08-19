@@ -87,6 +87,8 @@ std::string NLOBK_CONFIG_STRING()
         ss << " fixed as=" << FIXED_AS;
     else if (RC_LO == SMALLEST_LO)
         ss << " smallest dipole";
+    else if (RC_LO == BALITSKY_LO)
+        ss << " Balitsky";
     else
         ss << " NO STRING IMPLEMENTED!";
 

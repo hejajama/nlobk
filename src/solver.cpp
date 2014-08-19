@@ -1,6 +1,6 @@
 /*
  * nloBK equation solver
- * Heikki Mäntysaari <heikki.mantysaari@jyu.fi>, 2013
+ * Heikki Mäntysaari <heikki.mantysaari@jyu.fi>, 2013-2014
  */
 
 #include "solver.hpp"
@@ -164,8 +164,8 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 
         //cout << "r= " << dipole->RVal(i) << " dN/dy=" << lo+nlo << " lo " << lo << " nlo " << nlo << endl;
 
-        #pragma omp critical
-            cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
+        //#pragma omp critical
+        //    cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
         dydt[i]= lo + nlo;
 
         #pragma omp critical
@@ -344,10 +344,10 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
                     11.0/3.0*std::log(SQR(r))*musqr
                     -11.0/3.0 * (SQR(X) - SQR(Y) ) / SQR(r) * std::log( SQR(X/Y) )
                     + 67.0/9.0 - SQR(M_PI)/3.0
-                    -2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) )
+                    - 2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) )
                     )
                 );
-        }
+        } 
     }
     else if (RC_LO == PARENT_LO)
         result = Alphas(r)*NC/(2.0*M_PI*M_PI) *  r*r / (X*X * Y*Y);
@@ -368,10 +368,10 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         double min_size = r;
         if (X < min_size) min_size = X;
         if (Y < min_size) min_size = Y;
-        result *= Alphas(min_size)*NC/(2.0*M_PI*M_PI) *  r*r / (X*X * Y*Y);
+        result = Alphas(min_size)*NC/(2.0*M_PI*M_PI) *  r*r / (X*X * Y*Y);
         if (DOUBLELOG_LO_KERNEL)
-            result *= (1.0 + + 67.0/9.0 - SQR(M_PI)/3.0
-                    -2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) ) );
+            result *= (1.0 + Alphas(min_size) * NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 
+                    - 2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) ) ) );
     }
     else
     {
@@ -930,7 +930,7 @@ double BKSolver::Alphas(double r)
 	double scalefactor = 4.0*Csqr;
 	double rsqr = r*r;
 	double maxalphas=0.7;
-	double lambdaqcd=0.241;
+	double lambdaqcd=LAMBDAQCD;
         
 	if (scalefactor/(rsqr*lambdaqcd*lambdaqcd) < 1.0) return maxalphas;
 	double alpha = 12.0*M_PI/( (11.0*NC-2.0*NF)*std::log(scalefactor/ (rsqr*lambdaqcd*lambdaqcd) ) );

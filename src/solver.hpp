@@ -1,6 +1,6 @@
 /*
  * nloBK equation solver
- * Heikki Mäntysaari <heikki.mantysaari@jyu.fi>, 2013
+ * Heikki Mäntysaari <heikki.mantysaari@jyu.fi>, 2013-2014
  */
 
 #ifndef _NLOBK_SOLVER_H
