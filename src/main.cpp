@@ -13,14 +13,13 @@
 #include <iostream>
 #include <iomanip>
 #include <gsl/gsl_errno.h>
+#include <ctime>
+#include <unistd.h>
 
-using std::cout;
-using std::cerr;
-using std::endl;
-std::string version = "0.01-dev";
+using namespace std;
 
-// We need global variables so that the signal handler works
-std::string output="output.dat";
+string version = "0.01-dev";
+
 
 std::string NLOBK_CONFIG_STRING();
 void SaveData();
@@ -32,7 +31,15 @@ void ErrHandler(const char * reason,
 
 int main(int argc, char* argv[])
 {
-
+    time_t start = time(0);
+    string today = ctime(&start);
+    
+    char *hostname = new char[500];
+    gethostname(hostname, 500);
+    
+    cout <<"#"<<endl<<"# NLOBK solver " << version  << " running on " << hostname << ", start at " << today << "#" << endl;
+    delete[] hostname;
+    
     gsl_set_error_handler(&ErrHandler);
     //std::signal(SIGINT, SigIntHandler);
 
@@ -52,13 +59,18 @@ int main(int argc, char* argv[])
     //cout << "N(r=0.001)=" << dipole.N(0.001) <<", N(r=0.1)=" << dipole.N(0.1) <<", N(r=10)=" << dipole.N(10) << endl;
 
     BKSolver solver(&dipole);
-    solver.Solve(10);
+    solver.Solve(20);
     cout << "BK solved!" << endl;
 
 	std::string output=std::string(argv[1]);
 
     cout << "Saving to file " << output << endl;
     dipole.Save(output);
+
+    
+    time_t end = time(0);
+    int diff = end-start;
+    cout << "Solution took " << diff/60.0/60.0 << " hours" << endl;
 
     return 0;
 }

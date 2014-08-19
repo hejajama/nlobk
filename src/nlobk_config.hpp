@@ -23,12 +23,13 @@ const double LAMBDAQCD2 = LAMBDAQCD*LAMBDAQCD;
 const int RINTPOINTS=20;
 const int THETAINTPOINTS = 20;
 const double INTACCURACY=0.1;
-const double MAXR = 100;
+const double MCINTACCURACY = 0.2;
+const double MAXR = 40;
 const double MINR=1e-4;
-const unsigned int RPOINTS = 144;
+const unsigned int RPOINTS = 60;
 
 const bool MONTECARLO = true;
-const size_t MCINTPOINTS = 1e6;
+const size_t MCINTPOINTS = 1e5;
 
 const double DE_SOLVER_STEP = 0.5;
 

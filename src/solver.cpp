@@ -165,19 +165,19 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         //cout << "r= " << dipole->RVal(i) << " dN/dy=" << lo+nlo << " lo " << lo << " nlo " << nlo << endl;
 
         //#pragma omp critical
-        //    cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
+            //cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
         dydt[i]= lo + nlo;
 
         #pragma omp critical
         {
             ready++;
-            if (ready%72==0)
+            if (ready%20==0)
                 cout << "# y=" << y <<", ready " << ready << " / " << dipole->RPoints() << endl;
         }
         //exit(1);
         
     }
-    exit(1);
+    //exit(1);
 
     return GSL_SUCCESS;
 }
@@ -511,19 +511,19 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
             iter++;
             if (iter>=5)
             {
-                cerr << "Mcintegral didn't converge in 20 iterations (r=" << r << "), result->0 " << LINEINFO << endl;
+                cerr << "Mcintegral didn't converge in 5 iterations (r=" << r << "), result->0 " << LINEINFO << endl;
                 return 0;
             }
             //gsl_monte_plain_integrate
             gsl_monte_miser_integrate
                 (&fun, min, max, 4, calls, rnd, s,
                                    &result, &abserr);
-                if (std::abs(abserr/result)>0.2)
-                      cerr << "#r=" << r << " misermc integral failed, result " << result << " relerr " << std::abs(abserr/result) << ", again.... (iter " << iter << ")" << endl;
-        } while (std::abs(abserr/result)>0.2);
+                //if (std::abs(abserr/result)>0.2)
+                //      cerr << "#r=" << r << " misermc integral failed, result " << result << " relerr " << std::abs(abserr/result) << ", again.... (iter " << iter << ")" << endl;
+        } while (std::abs(abserr/result)>MCINTACCURACY);
         //gsl_monte_plain_free (s);
         gsl_monte_miser_free(s);
-        //cout <<"#Integration finished at iter=" << iter <<", r=" << r <<", result " << result << " relerr " << abserr/result << " intpoints " << calls << endl;
+        //cout <<"#Integration finished at r=" << r <<", result " << result << " relerr " << abserr/result << " intpoints " << calls << endl;
         
         gsl_rng_free(rnd);
         
@@ -699,6 +699,7 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
         if (Y < min_size) min_size = Y;
         if (X2 < min_size) min_size=X2;
         if (Y2 < min_size) min_size = Y2;
+        if (z_m_z2 < min_size) min_size = z_m_z2;
 
         result *= SQR( solver->Alphas(min_size) * NC) / (8.0 * std::pow(M_PI, 4) );
     }
