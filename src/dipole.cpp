@@ -135,6 +135,7 @@ int Dipole::AddRapidity(double y, double rgrid[])
  *
  * Syntax is the same as in rbk and AmplitudeLib
  */
+std::string NLOBK_CONFIG_STRING();
 int Dipole::Save(std::string filename)
 {
     std::ofstream out;
@@ -144,7 +145,9 @@ int Dipole::Save(std::string filename)
     out << "# NLO BK equation solver " << VERSION << " build " << " (build " <<  __DATE__ << " " << __TIME__ << ")" << endl;
     out <<"# Initial condition: " << ic->GetString() << endl;
 
-    std::string lokernel,nlokernel;
+    out << "# " << NLOBK_CONFIG_STRING() << endl;
+
+    /*std::string lokernel,nlokernel;
     if (RC_LO == FIXED_LO)
     {
         std::stringstream ss;
@@ -167,7 +170,8 @@ int Dipole::Save(std::string filename)
     if (MONTECARLO)
         out << "# Integration method: Montecarlo, intpoints=" << MCINTPOINTS << endl;
     else out << "# Integration methods: nested integrals" << endl;
-
+    */
+    
     out << "###" << std::scientific << std::setprecision(15) << MinR() << endl;
     out << "###" << std::scientific << std::setprecision(15) <<
         rvals[1]/rvals[0]  << endl;   // rmultiplier

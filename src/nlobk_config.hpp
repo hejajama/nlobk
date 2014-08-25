@@ -26,10 +26,12 @@ const double INTACCURACY=0.1;
 const double MCINTACCURACY = 0.2;
 const double MAXR = 40;
 const double MINR=1e-4;
-const unsigned int RPOINTS = 60;
+const unsigned int RPOINTS = 80;
 
 const bool MONTECARLO = true;
-const size_t MCINTPOINTS = 1e5;
+const size_t MCINTPOINTS = 5e5;
+
+const bool CONFORMAL_DIPOLE = true; // true if solve equation for the conformal dipole
 
 const double DE_SOLVER_STEP = 0.5;
 
@@ -47,11 +49,11 @@ enum RunningCouplingNLO
     PARENT_NLO,
     SMALLEST_NLO
 };
-const double FIXED_AS = 0.05;
+const double FIXED_AS = 0.005;
 
 
-const RunningCouplingLO RC_LO = SMALLEST_LO;
-const RunningCouplingNLO RC_NLO = SMALLEST_NLO;
+const RunningCouplingLO RC_LO = FIXED_LO;
+const RunningCouplingNLO RC_NLO = FIXED_NLO;
 
 const bool DOUBLELOG_LO_KERNEL = true; // include double log term from the LO kernel
 
