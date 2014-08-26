@@ -175,7 +175,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         //exit(1);
         
     }
-    exit(1);
+    //exit(1);
 
     return GSL_SUCCESS;
 }
@@ -864,7 +864,7 @@ double BKSolver::Kernel_nlo_conformal_2(double r, double X, double Y, double X2,
 {
     double result = 0;
     result = (SQR(r/(z_m_z2*X*Y2)) + std::pow(r,4)/(SQR(X*Y2)*(SQR(X*Y2) - SQR(X2*Y) ) )  ) * std::log(SQR(X*Y2/(X2*Y)));
-    result += 2.0*SQR(r/(z_m_z2*X*Y2)) * std::log( SQR( r*z_m_z2 / (X*Y2) ) );
+    result += 2.0*SQR(r/(z_m_z2*X*Y2)) * std::log( SQR( r*z_m_z2 / (X2*Y) ) );
     return result;
 }
 

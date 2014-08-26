@@ -1,6 +1,6 @@
 /*
  * nloBK equation solver
- * Heikki Mäntysaari <heikki.mantysaari@jyu.fi>, 2013
+ * Heikki Mäntysaari <heikki.mantysaari@jyu.fi>, 2013-2014
  */
 
 // Configs
@@ -49,11 +49,11 @@ enum RunningCouplingNLO
     PARENT_NLO,
     SMALLEST_NLO
 };
-const double FIXED_AS = 0.005;
+const double FIXED_AS = 0.01;
 
 
-const RunningCouplingLO RC_LO = FIXED_LO;
-const RunningCouplingNLO RC_NLO = FIXED_NLO;
+const RunningCouplingLO RC_LO = SMALLEST_LO;
+const RunningCouplingNLO RC_NLO = SMALLEST_NLO;
 
 const bool DOUBLELOG_LO_KERNEL = true; // include double log term from the LO kernel
 
