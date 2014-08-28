@@ -29,7 +29,7 @@ const double MINR=1e-4;
 const unsigned int RPOINTS = 80;
 
 const bool MONTECARLO = true;
-const size_t MCINTPOINTS = 5e5;
+const size_t MCINTPOINTS = 7e5;
 
 const bool CONFORMAL_DIPOLE = true; // true if solve equation for the conformal dipole
 
@@ -57,6 +57,12 @@ const RunningCouplingNLO RC_NLO = SMALLEST_NLO;
 
 const bool DOUBLELOG_LO_KERNEL = true; // include double log term from the LO kernel
 
+enum INTEGRATION_METHOD
+{
+    VEGAS,
+    MISER
+};
+const INTEGRATION_METHOD INTMETHOD_NLO = VEGAS;
 
     
 

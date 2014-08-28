@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
     MV ic;
 	ic.SetQsqr(0.2);
     //IC_datafile ic;
-    //ic.LoadFile("../amplitudelib_v2/amplitudelib2/nlobk_analyysit/loglog/nlo_smallest_y_2");
+    //ic.LoadFile("../amplitudelib_v2/amplitudelib2/nlobk_analyysit/nonconformal/nonconformal_y_1");
     
     cout << "# " << NLOBK_CONFIG_STRING() << endl;
     cout << "#Initial condition is " << ic.GetString() << endl;
@@ -59,7 +59,7 @@ int main(int argc, char* argv[])
     //cout << "N(r=0.001)=" << dipole.N(0.001) <<", N(r=0.1)=" << dipole.N(0.1) <<", N(r=10)=" << dipole.N(10) << endl;
 
     BKSolver solver(&dipole);
-    solver.Solve(10);
+    solver.Solve(2);
     cout << "BK solved!" << endl;
 
 	std::string output=std::string(argv[1]);
@@ -114,8 +114,11 @@ std::string NLOBK_CONFIG_STRING()
 
     ss <<". Nc=" << NC << ", Nf=" << NF;
 
-    if (DOUBLELOG_LO_KERNEL) ss << ". Double log term in LO kernel included";
-    else ss << ". Double log term in LO kernel NOT included";
+    if (!CONFORMAL_DIPOLE)
+    {
+        if (DOUBLELOG_LO_KERNEL) ss << ". Double log term in LO kernel included";
+        else ss << ". Double log term in LO kernel NOT included";
+    }
 
     if (CONFORMAL_DIPOLE) ss << ". Solving for CONFORMAL dipole";
     else ss << ". Solving for standard NON-CONFORMAL dipole";

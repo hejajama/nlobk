@@ -85,8 +85,8 @@ double Dipole::N(double r)
     }
 
     double n = dipole_interp->Evaluate(r);
-    if (n<0) return 0;
-    if (n>=1.0) return 1.0;
+    //if (n<0) return 0;
+    //if (n>=1.0) return 1.0;
 
     return dipole_interp -> Evaluate(r);
 }
@@ -94,8 +94,8 @@ double Dipole::N(double r)
 double Dipole::S(double r)
 {
     double s=1.0-N(r);
-    if (s<0) return 0;
-    if (s>1.0) return 1.0;
+    //if (s<0) return 0;
+    //if (s>1.0) return 1.0;
     return 1.0-N(r);
 }
 
@@ -146,31 +146,6 @@ int Dipole::Save(std::string filename)
     out <<"# Initial condition: " << ic->GetString() << endl;
 
     out << "# " << NLOBK_CONFIG_STRING() << endl;
-
-    /*std::string lokernel,nlokernel;
-    if (RC_LO == FIXED_LO)
-    {
-        std::stringstream ss;
-        ss << "fixed as=" << FIXED_AS;
-        lokernel=ss.str();
-    }
-    if (RC_LO == BALITSKY_LO)
-        lokernel="balitsky";
-    if (RC_LO == PARENT_LO)
-        lokernel="parent";
-    
-    if (RC_NLO == FIXED_NLO)
-    {
-        std::stringstream ss;
-        ss << "fixed as=" << FIXED_AS;
-        nlokernel=ss.str();
-    }
-
-    out << "# LO kernel: " << lokernel << ", NLO kernel: " << nlokernel << endl;
-    if (MONTECARLO)
-        out << "# Integration method: Montecarlo, intpoints=" << MCINTPOINTS << endl;
-    else out << "# Integration methods: nested integrals" << endl;
-    */
     
     out << "###" << std::scientific << std::setprecision(15) << MinR() << endl;
     out << "###" << std::scientific << std::setprecision(15) <<

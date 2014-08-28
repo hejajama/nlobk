@@ -110,33 +110,35 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         rvals.push_back(dipole->RVal(i));
 
         double n = amplitude[i];
-        if (n>1.0) n=1.0;
-        if (n<0) n=0;
+        //if (n>1.0) n=1.0;
+        //if (n<0) n=0;
         nvals.push_back(n);
 
         if (amplitude[i]>0.9999)
             maxr_interp = dipole->RVal(i);
         
         double s = 1.0-amplitude[i];
-        if (s<0) s=0;
-        if (s>1) s=1.0;
+        //if (s<0) s=0;
+        //if (s>1) s=1.0;
         yvals_s.push_back(s);
     }
     Interpolator interp(rvals,nvals);
     interp.Initialize();
-    interp.SetFreeze(true);
-    interp.SetUnderflow(0);
-    interp.SetOverflow(1.0);
+    interp.SetOutOfRangeErrors(false);
+    //interp.SetFreeze(true);
+    //interp.SetUnderflow(0);
+    //interp.SetOverflow(1.0);
 
     Interpolator interp_s(rvals,yvals_s);
     interp_s.Initialize();
-    interp_s.SetFreeze(true);
-    interp_s.SetUnderflow(1.0);
-    interp_s.SetOverflow(0.0);
+    interp_s.SetOutOfRangeErrors(false);
+    //interp_s.SetFreeze(true);
+    //interp_s.SetUnderflow(1.0);
+    //interp_s.SetOverflow(0.0);
 
   
-    if (maxr_interp>0)
-        interp_s.SetMaxX(maxr_interp);
+    //if (maxr_interp>0)
+    //    interp_s.SetMaxX(maxr_interp);
 
 
     int ready=0;
@@ -163,7 +165,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         //cout << "r= " << dipole->RVal(i) << " dN/dy=" << lo+nlo << " lo " << lo << " nlo " << nlo << endl;
 
         //#pragma omp critical
-            cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
+            //cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
         dydt[i]= lo + nlo;
 
         #pragma omp critical
@@ -482,67 +484,69 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
         int seconds=difftime(timer, 0);
         gsl_rng_set(rnd, seconds);
 
-        /*
+        
         
         const int maxiter_vegas=10;
 
-
-        gsl_monte_vegas_state *s = gsl_monte_vegas_alloc (dim);
-        gsl_monte_vegas_integrate (&fun, min, max, dim, calls/5, rnd, s,
-                                   &result, &abserr);
-        //cout <<"Warmup result " << result << " error " << abserr << endl; 
-        double prevres = result;
-        int iters=0;
-        do
-          {
-            gsl_monte_vegas_integrate (&fun, min, max, dim, calls, rnd, s,
+        if (INTMETHOD_NLO == VEGAS)
+        {
+            gsl_monte_vegas_state *s = gsl_monte_vegas_alloc (dim);
+            gsl_monte_vegas_integrate (&fun, min, max, dim, calls/5, rnd, s,
                                        &result, &abserr);
-            #pragma omp critical
-            cout << "Result(r=" << r <<") " << result << " err " << abserr << " relchange " << (result-prevres)/prevres << " chi^2 " << gsl_monte_vegas_chisq (s) << endl;
-            prevres=result;
-            iters++;
-          }
-          while ((std::abs( abserr/result) > 0.03 or std::abs (gsl_monte_vegas_chisq (s) - 1.0) > 0.5) and iters<maxiter_vegas);
-        //while (fabs (gsl_monte_vegas_chisq (s) - 1.0) > 0.5);
-        //#pragma omp critical
-        if (iters>=maxiter_vegas)
-        {
-            cout <<"# Integration failed, result->0, bestresult "<< result << " relerr " << abserr/result << " chi^2 "  << gsl_monte_vegas_chisq (s) << endl;
-            result=0;
-        }
-        else
-            cout << "Integration finished, r=" << r<< ", result " << result << " relerr " << abserr/result << " chi^2 "  << gsl_monte_vegas_chisq (s) << " (intpoints " << calls << ")" << endl;
-        gsl_monte_vegas_free(s);
-        */
-
-    
-        
-        // plain or miser
-        //gsl_monte_plain_state *s = gsl_monte_plain_alloc (4);
-        gsl_monte_miser_state *s = gsl_monte_miser_alloc (4);
-        int iter=0;
-        
-        do
-        {
-            iter++;
-            if (iter>=5)
+            //cout <<"Warmup result " << result << " error " << abserr << endl; 
+            double prevres = result;
+            int iters=0;
+            do
+              {
+                gsl_monte_vegas_integrate (&fun, min, max, dim, calls, rnd, s,
+                                           &result, &abserr);
+                //#pragma omp critical
+                //cout << "Result(r=" << r <<") " << result << " err " << abserr << " relchange " << (result-prevres)/prevres << " chi^2 " << gsl_monte_vegas_chisq (s) << endl;
+                prevres=result;
+                iters++;
+              }
+              while ((std::abs( abserr/result) > 0.1 or std::abs (gsl_monte_vegas_chisq (s) - 1.0) > 0.5 ) and iters<maxiter_vegas );
+            //while (fabs (gsl_monte_vegas_chisq (s) - 1.0) > 0.5);
+            //#pragma omp critical
+            if (iters>=maxiter_vegas)
             {
-                cerr << "Mcintegral didn't converge in 5 iterations (r=" << r << "), result->0 " << LINEINFO << endl;
-                return 0;
+                cout <<"# Integration failed, result->0, bestresult "<< result << " relerr " << abserr/result << " chi^2 "  << gsl_monte_vegas_chisq (s) << endl;
+                result=0;
             }
-            //gsl_monte_plain_integrate
-            gsl_monte_miser_integrate
-                (&fun, min, max, 4, calls, rnd, s,
-                                   &result, &abserr);
-                //if (std::abs(abserr/result)>0.2)
-                //      cerr << "#r=" << r << " misermc integral failed, result " << result << " relerr " << std::abs(abserr/result) << ", again.... (iter " << iter << ")" << endl;
-        } while (std::abs(abserr/result)>MCINTACCURACY);
-        //gsl_monte_plain_free (s);
-        gsl_monte_miser_free(s);
-        //cout <<"#Integration finished at r=" << r <<", result " << result << " relerr " << abserr/result << " intpoints " << calls << endl;
+            //else
+            //    cout << "Integration finished, r=" << r<< ", result " << result << " relerr " << abserr/result << " chi^2 "  << gsl_monte_vegas_chisq (s) << " (intpoints " << calls << ")" << endl;
+            gsl_monte_vegas_free(s);
         
-        gsl_rng_free(rnd);
+        }
+        else if (INTMETHOD_NLO == MISER)
+        {    
         
+            // plain or miser
+            //gsl_monte_plain_state *s = gsl_monte_plain_alloc (4);
+            gsl_monte_miser_state *s = gsl_monte_miser_alloc (4);
+            int iter=0;
+            
+            do
+            {
+                iter++;
+                if (iter>=2)
+                {
+                    cerr << "Mcintegral didn't converge in 2 iterations (r=" << r << "), result->0 " << LINEINFO << endl;
+                    return 0;
+                }
+                //gsl_monte_plain_integrate
+                gsl_monte_miser_integrate
+                    (&fun, min, max, 4, calls, rnd, s,
+                                       &result, &abserr);
+                    //if (std::abs(abserr/result)>0.2)
+                    //      cerr << "#r=" << r << " misermc integral failed, result " << result << " relerr " << std::abs(abserr/result) << ", again.... (iter " << iter << ")" << endl;
+            } while (std::abs(abserr/result)>MCINTACCURACY);
+            //gsl_monte_plain_free (s);
+            gsl_monte_miser_free(s);
+            //cout <<"#Integration finished at r=" << r <<", result " << result << " relerr " << abserr/result << " intpoints " << calls << endl;
+            
+            gsl_rng_free(rnd);
+        }        
            
     }
     
@@ -555,7 +559,7 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
     {
         // Multiply in the integrand!   
     }
-    else
+    else 
     {
         cerr << "Unknown NLO kernel alphas! " << LINEINFO << endl;
         return -1;
@@ -768,7 +772,8 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
         //    return 0;
             
         cerr << "infnan at " << LINEINFO << ": X="<<X<<", Y=" << Y <<",X2=" << X2 << ", Y2=" << Y2 <<", z-z'=" << z_m_z2 << " r " << r << " z " << z << " z2 " << z2 << " theta_z " << theta_z << " theta_z2 " << theta_z2 << endl;
-        exit(1);
+        return 0;
+        //exit(1);
 		//if ((d->S(X) * d->S(z_m_z2) * d->S(Y2) - d->S(X)*d->S(Y)) != 0  and std::abs(theta_v+theta_w-2.0*M_PI)>0.01)
 			//cerr << "Result " << result << " X " << X << " Y " << Y << " X2 " << X2 << " Y2 " << Y2 << " z-z' " << z_m_z2 << " theta_z " << theta_z << " theta_z2 " << theta_z2 << " Kernel 1 " <<  
 //solver->Kernel_nlo_1(r,z,theta_z,z2,theta_z2) << " dipolepart " << (d->S(X) * d->S(z_m_z2) * d->S(Y2) - d->S(X)*d->S(Y)) <<  " kernel 2 " << solver->Kernel_nlo_2(r,z,theta_z,z2,theta_z2) << " dipole2 " << d->S(X)*d->S(z_m_z2)*d->S(Y2) << endl;
@@ -849,11 +854,11 @@ double BKSolver::Kernel_nlo_conformal_1(double r, double X, double Y, double X2,
                 + std::pow(r,4) / ( SQR(X*Y2) - SQR(X2*Y) ) * ( 1.0/SQR(X*Y2) + 1.0/SQR(X2*Y) )
                     + 2.0*(SQR(X*Y2) + SQR(X2*Y) - 4.0*SQR(r*z_m_z2) )/( std::pow(z_m_z2,4) * (SQR(X*Y2) - SQR(X2*Y) ) )    )
                 * std::log(SQR(X*Y2/(X2*Y))) ;
-
+    
     result += -4.0/std::pow(z_m_z2,4) + 2.0*SQR(r/(z_m_z2*X*Y2)) * std::log(SQR(r*z_m_z2/(X2*Y)))
                                       + 2.0*SQR(r/(z_m_z2*X2*Y)) * std::log(SQR(r*z_m_z2/(X*Y2)));
 
-
+    
     if (isinf(result) or isnan(result))
         return 0;
     return result;
