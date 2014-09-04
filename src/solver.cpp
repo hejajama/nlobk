@@ -110,62 +110,47 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         rvals.push_back(dipole->RVal(i));
 
         double n = amplitude[i];
-        //if (n>1.0) n=1.0;
-        //if (n<0) n=0;
+        if (n>1.0) n=1.0;
+        if (n<0) n=0;
         nvals.push_back(n);
 
         if (amplitude[i]>0.9999)
             maxr_interp = dipole->RVal(i);
         
         double s = 1.0-amplitude[i];
-        //if (s<0) s=0;
-        //if (s>1) s=1.0;
+        if (s<0) s=0;
+        if (s>1) s=1.0;
         yvals_s.push_back(s);
     }
     Interpolator interp(rvals,nvals);
     interp.Initialize();
-    interp.SetOutOfRangeErrors(false);
-    //interp.SetFreeze(true);
-    //interp.SetUnderflow(0);
-    //interp.SetOverflow(1.0);
+    interp.SetFreeze(true);
+    interp.SetUnderflow(0);
+    interp.SetOverflow(1.0);
 
     Interpolator interp_s(rvals,yvals_s);
     interp_s.Initialize();
-    interp_s.SetOutOfRangeErrors(false);
-    //interp_s.SetFreeze(true);
-    //interp_s.SetUnderflow(1.0);
-    //interp_s.SetOverflow(0.0);
-
-  
-    //if (maxr_interp>0)
-    //    interp_s.SetMaxX(maxr_interp);
+    interp_s.SetFreeze(true);
+    interp_s.SetUnderflow(1.0);
+    interp_s.SetOverflow(0.0);
 
 
     int ready=0;
-    // r=38.72 i=135
 	#pragma omp parallel for
     for (unsigned int i=0; i< dipole->RPoints(); i+=1)
     {
         //#pragma omp critical
         //cout <<"# r=" << dipole->RVal(i) << endl;
 
-        // Let us freeze evolution of large dipoles....
-        /*if (amplitude[i]>0.99999)
-        {
-            dydt[i]=0;
-            continue;
-        }*/
-         
-        //cout << "Dipole size: " << dipole->RVal(i) << endl;
+
         double lo = par->solver->RapidityDerivative_lo(dipole->RVal(i), &interp);
 
         double nlo=0;
         nlo = par->solver->RapidityDerivative_nlo(dipole->RVal(i), &interp, &interp_s);
 
-        //cout << "r= " << dipole->RVal(i) << " dN/dy=" << lo+nlo << " lo " << lo << " nlo " << nlo << endl;
 
         //#pragma omp critical
-            //cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
+            cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
         dydt[i]= lo + nlo;
 
         #pragma omp critical
@@ -177,7 +162,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         //exit(1);
         
     }
-    //exit(1);
+    exit(1);
 
     return GSL_SUCCESS;
 }
@@ -333,35 +318,39 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     if (X<eps or Y<eps)
         return 0;
 
+    // N=4 is easy as the coupling does not run
+    if (EQUATION == CONFORMAL_N4)
+    {
+        result = FIXED_AS / (2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
+                * (1.0 - FIXED_AS * NC / (4.0*M_PI) * M_PI*M_PI/3.0);
+        return result;
+    }
+
+    ////// QCD
+
     // Running coupling
     if (RC_LO == FIXED_LO)
     {
         result = FIXED_AS * NC/(2.0*M_PI*M_PI) *  r*r / (X*X * Y*Y);
-
-        if (DOUBLELOG_LO_KERNEL)
+        if (EQUATION == CONFORMAL_QCD)   ///TODO: should we include ~beta terms here or not?
         {
-            if (CONFORMAL_DIPOLE)   ///TODO: should we include ~beta terms here or not?
-            {
-                result *= (1.0 + FIXED_AS*NC/(4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0) );
-            }
-            else
-            {
-                result *= (1.0 + FIXED_AS * NC / (4.0*M_PI)  *
-                    (
-                    11.0/3.0*std::log(SQR(r))*musqr
-                    -11.0/3.0 * (SQR(X) - SQR(Y) ) / SQR(r) * std::log( SQR(X/Y) )
-                    + 67.0/9.0 - SQR(M_PI)/3.0
-                    - 2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) )
-                    )
-                    );
-            }
+            result *= (1.0 + FIXED_AS*NC/(4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0) );
+        }
+        else if (DOUBLELOG_LO_KERNEL and EQUATION == QCD)
+        {
+            result *= (1.0 + FIXED_AS * NC / (4.0*M_PI)  *
+                (
+                11.0/3.0*std::log(SQR(r))*musqr
+                -11.0/3.0 * (SQR(X) - SQR(Y) ) / SQR(r) * std::log( SQR(X/Y) )
+                + 67.0/9.0 - SQR(M_PI)/3.0
+                - 2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) )
+                )
+            );
         } 
     }
-    else if (RC_LO == PARENT_LO)
-        result = Alphas(r)*NC/(2.0*M_PI*M_PI) *  r*r / (X*X * Y*Y);
     else if (RC_LO == BALITSKY_LO)
     {
-        double alphas_y = Alphas(Y);
+        /*double alphas_y = Alphas(Y);
         double alphas_x = Alphas(X);
         result = 
          NC/(2.0*SQR(M_PI))*Alphas(r)
@@ -369,7 +358,8 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
             SQR(r) / ( SQR(X) * SQR(Y) )
             + 1.0/SQR(Y)*(alphas_y/alphas_x - 1.0)
             + 1.0/SQR(X)*(alphas_x/alphas_y - 1.0)
-            );
+            );*/
+        cerr << "Balitsky kernel is not supported yet! " << LINEINFO << endl;
     }
     else if (RC_LO == SMALLEST_LO)
     {
@@ -377,18 +367,15 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         if (X < min_size) min_size = X;
         if (Y < min_size) min_size = Y;
         result = Alphas(min_size)*NC/(2.0*M_PI*M_PI) *  r*r / (X*X * Y*Y);
-        if (DOUBLELOG_LO_KERNEL)
+        if (EQUATION == CONFORMAL_QCD)
         {
-            if (CONFORMAL_DIPOLE)
-            {
                 result *= 1.0 + Alphas(min_size)*NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0); 
-            }
-            else
-            {
-                result *= (1.0 + Alphas(min_size) * NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 
-                        - 2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) ) 
-                        ) );
-            }
+        }
+        else if (DOUBLELOG_LO_KERNEL and EQUATION == QCD)
+        {
+            result *= (1.0 + Alphas(min_size) * NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 
+                    - 2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) ) 
+                    ) );
         }
     }
     else
@@ -439,7 +426,7 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
 
     int status; double  result, abserr;
 
-    if (!MONTECARLO)
+    if (INTMETHOD_NLO == MULTIPLE)
     {
         gsl_function fun;
         fun.params = &helper;
@@ -493,7 +480,7 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
             gsl_monte_vegas_state *s = gsl_monte_vegas_alloc (dim);
             gsl_monte_vegas_integrate (&fun, min, max, dim, calls/5, rnd, s,
                                        &result, &abserr);
-            //cout <<"Warmup result " << result << " error " << abserr << endl; 
+            //cout <<"#Warmup result " << result << " error " << abserr << endl; 
             double prevres = result;
             int iters=0;
             do
@@ -501,11 +488,11 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
                 gsl_monte_vegas_integrate (&fun, min, max, dim, calls, rnd, s,
                                            &result, &abserr);
                 //#pragma omp critical
-                //cout << "Result(r=" << r <<") " << result << " err " << abserr << " relchange " << (result-prevres)/prevres << " chi^2 " << gsl_monte_vegas_chisq (s) << endl;
+                //cout << "#Result(r=" << r <<") " << result << " err " << abserr << " relchange " << (result-prevres)/prevres << " chi^2 " << gsl_monte_vegas_chisq (s) << endl;
                 prevres=result;
                 iters++;
               }
-              while ((std::abs( abserr/result) > 0.1 or std::abs (gsl_monte_vegas_chisq (s) - 1.0) > 0.5 ) and iters<maxiter_vegas );
+              while ((std::abs( abserr/result) > 0.3 or std::abs (gsl_monte_vegas_chisq (s) - 1.0) > 0.5 ) and iters<maxiter_vegas );
             //while (fabs (gsl_monte_vegas_chisq (s) - 1.0) > 0.5);
             //#pragma omp critical
             if (iters>=maxiter_vegas)
@@ -550,20 +537,6 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
            
     }
     
-    
-    if (RC_NLO == FIXED_NLO)
-        result *= SQR(FIXED_AS*NC) / (8.0*std::pow(M_PI,4) );
-    else if (RC_NLO == PARENT_NLO)
-        result *= SQR( Alphas(r) * NC) / (8.0 * std::pow(M_PI, 4) );
-    else if (RC_NLO == SMALLEST_NLO)
-    {
-        // Multiply in the integrand!   
-    }
-    else 
-    {
-        cerr << "Unknown NLO kernel alphas! " << LINEINFO << endl;
-        return -1;
-    }
     
 
     // used for arxiv version evolution for s
@@ -686,7 +659,7 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
     
     double result=0;
 
-    if (!CONFORMAL_DIPOLE)
+    if (EQUATION == QCD)
     {
         double k = solver->Kernel_nlo(r,X,Y,X2,Y2,z_m_z2);
         double kswap = solver->Kernel_nlo(r,X2,Y2,X,Y,z_m_z2);
@@ -713,7 +686,7 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
     }
 
     // Evolution for conformal dipole
-    else
+    else if (EQUATION==CONFORMAL_QCD)
     {
         double k1 = solver->Kernel_nlo_conformal_1(r,X,Y,X2,Y2,z_m_z2);        
         double k2 = solver->Kernel_nlo_conformal_2(r,X,Y,X2,Y2,z_m_z2);
@@ -732,31 +705,71 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
             - dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y2);
 
         result = (k1*dipole1 + k2*dipole2 + k1_swap*dipole1_swap + k2_swap*dipole2_swap)/2.0;
-        
 
-        result /= -2.0;
-            // The coefficient for non-conformal evolution is as^2Nc^2/(8 pi^4), and for
-            // conformal evolution as^2Nc^2/(16 pi^4). result is multiplied by ~1/(8pi^4), thus
-            // we divide this by 2 here.
+        /// Fermion part
+        if (NF > 0)
+        {
+            double kernel_f = solver->Kernel_nlo_conformal_fermion(r,X,Y,X2,Y2,z_m_z2);
+            double dipole_f = dipole_interp_s->Evaluate(Y) * ( dipole_interp_s->Evaluate(X2)
+                                                                - dipole_interp_s->Evaluate(X) );
 
-            // Minus sign as the evolution is written for S but we solve N = 1-S
+            result += kernel_f * dipole_f;
+        }
 
+        result *= -1.0; // Minus sign as the evolution is written for S but we solve N = 1-S
+
+    }
+
+    else if (EQUATION == CONFORMAL_N4)
+    {
+        result = dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y2)
+            - dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(Y);
+
+        result *= solver->Kernel_nlo_n4_sym(r,X,Y,X2,Y2,z_m_z2);
+
+        result *= -1.0; // Minus sign as the evolution is written for S but we solve N = 1-S
+    }
+
+    else
+    {
+        cerr << "Unknown equation to solve: " << EQUATION << endl;
     }
     
 
+
+    /////// Coefficients
+
     // If the alphas scale is set by the smallest dipole, multiply the kernel here by as^2 and
     // other relevant factors
-    if (RC_NLO == SMALLEST_NLO)
-    {   
-        double min_size = r;
-        if (X < min_size) min_size = X;
-        if (Y < min_size) min_size = Y;
-        if (X2 < min_size) min_size=X2;
-        if (Y2 < min_size) min_size = Y2;
-        if (z_m_z2 < min_size) min_size = z_m_z2;
+    if (EQUATION == CONFORMAL_N4)
+        result *= SQR(FIXED_AS*NC)/(8.0*std::pow(M_PI, 4));
+    else if (EQUATION == QCD or EQUATION == CONFORMAL_QCD)
+    {
+        if (RC_NLO == FIXED_NLO)
+            result *= SQR(FIXED_AS*NC) / (8.0*std::pow(M_PI,4) );
+        else if (RC_NLO == PARENT_NLO)
+            result *= SQR( solver->Alphas(r) * NC) / (8.0 * std::pow(M_PI, 4) );
+        else if (RC_NLO == SMALLEST_NLO)
+        {
+            double min_size = r;
+            if (X < min_size) min_size = X;
+            if (Y < min_size) min_size = Y;
+            if (X2 < min_size) min_size=X2;
+            if (Y2 < min_size) min_size = Y2;
+            if (z_m_z2 < min_size) min_size = z_m_z2;
 
-        result *= SQR( solver->Alphas(min_size) * NC) / (8.0 * std::pow(M_PI, 4) );
+            result *= SQR( solver->Alphas(min_size) * NC) / (8.0 * std::pow(M_PI, 4) );   
+        }
+        else 
+        {
+            cerr << "Unknown NLO kernel alphas! " << LINEINFO << endl;
+            return -1;
+        }
+
+
     }
+    else
+        cerr << "WTF! " << LINEINFO << endl;
     
     
     
@@ -768,18 +781,7 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
 
 	if (isnan(result) or isinf(result))
 	{
-        //if (X>10 and Y>10 and X2>10 and Y2>10)  // dipole part vanishes??????
-        //    return 0;
-            
-        cerr << "infnan at " << LINEINFO << ": X="<<X<<", Y=" << Y <<",X2=" << X2 << ", Y2=" << Y2 <<", z-z'=" << z_m_z2 << " r " << r << " z " << z << " z2 " << z2 << " theta_z " << theta_z << " theta_z2 " << theta_z2 << endl;
-        return 0;
-        //exit(1);
-		//if ((d->S(X) * d->S(z_m_z2) * d->S(Y2) - d->S(X)*d->S(Y)) != 0  and std::abs(theta_v+theta_w-2.0*M_PI)>0.01)
-			//cerr << "Result " << result << " X " << X << " Y " << Y << " X2 " << X2 << " Y2 " << Y2 << " z-z' " << z_m_z2 << " theta_z " << theta_z << " theta_z2 " << theta_z2 << " Kernel 1 " <<  
-//solver->Kernel_nlo_1(r,z,theta_z,z2,theta_z2) << " dipolepart " << (d->S(X) * d->S(z_m_z2) * d->S(Y2) - d->S(X)*d->S(Y)) <<  " kernel 2 " << solver->Kernel_nlo_2(r,z,theta_z,z2,theta_z2) << " dipole2 " << d->S(X)*d->S(z_m_z2)*d->S(Y2) << endl;
-		result = 0;
-
-        
+        return 0;    
     }
 
     return result;
@@ -842,8 +844,10 @@ double BKSolver::Kernel_nlo(double r, double X, double Y, double X2, double Y2, 
 }
 
 
-
-///////////////////// Conformal kernels
+/***************************************************
+* Conformal kernels
+* Note that as^2 nc^2 / (8pi^2) is taken out from the kernels
+****************************************************/
 double BKSolver::Kernel_nlo_conformal_1(double r, double X, double Y, double X2, double Y2, double z_m_z2)
 {
     double result = 0;
@@ -853,14 +857,19 @@ double BKSolver::Kernel_nlo_conformal_1(double r, double X, double Y, double X2,
     result = ( SQR(r/z_m_z2) * (1.0/SQR(X*Y2) - 1.0/SQR(X2*Y) )
                 + std::pow(r,4) / ( SQR(X*Y2) - SQR(X2*Y) ) * ( 1.0/SQR(X*Y2) + 1.0/SQR(X2*Y) )
                     + 2.0*(SQR(X*Y2) + SQR(X2*Y) - 4.0*SQR(r*z_m_z2) )/( std::pow(z_m_z2,4) * (SQR(X*Y2) - SQR(X2*Y) ) )    )
-                * std::log(SQR(X*Y2/(X2*Y))) ;
+                * 2.0*std::log(X*Y2/(X2*Y)) ;
+                
     
-    result += -4.0/std::pow(z_m_z2,4) + 2.0*SQR(r/(z_m_z2*X*Y2)) * std::log(SQR(r*z_m_z2/(X2*Y)))
-                                      + 2.0*SQR(r/(z_m_z2*X2*Y)) * std::log(SQR(r*z_m_z2/(X*Y2)));
-
+    result += -4.0/std::pow(z_m_z2,4) + 2.0*SQR(r/(z_m_z2*X*Y2)) * 2.0*std::log(r*z_m_z2/(X2*Y))
+                                      + 2.0*SQR(r/(z_m_z2*X2*Y)) * 2.0*std::log(r*z_m_z2/(X*Y2));
+    
     
     if (isinf(result) or isnan(result))
         return 0;
+
+    result /= 2.0;      // Conformal kernel is multiplied by as^2 Nc^2/(8pi^4) in the Inthelperf_nlo function,
+                        // but as the gluon part has prefactor as^2 Nc^2/(8pi^4), conformal kernels 1 and 2 are
+                        // divided by 2 here
     return result;
 }
 
@@ -869,8 +878,42 @@ double BKSolver::Kernel_nlo_conformal_2(double r, double X, double Y, double X2,
 {
     double result = 0;
     result = (SQR(r/(z_m_z2*X*Y2)) + std::pow(r,4)/(SQR(X*Y2)*(SQR(X*Y2) - SQR(X2*Y) ) )  ) * std::log(SQR(X*Y2/(X2*Y)));
-    result += 2.0*SQR(r/(z_m_z2*X*Y2)) * std::log( SQR( r*z_m_z2 / (X2*Y) ) );
+    result += 2.0*SQR(r/(z_m_z2*X*Y2)) * 2.0*std::log( r*z_m_z2 / (X2*Y) );
+
+    result /= 2.0;      // Conformal kernel is multiplied by as^2 Nc^2/(8pi^4) in the Inthelperf_nlo function,
+                        // but as the gluon part has prefactor as^2 Nc^2/(8pi^4), conformal kernels 1 and 2 are
+                        // divided by 2 here
     return result;
+}
+
+double BKSolver::Kernel_nlo_conformal_fermion(double r, double X, double Y, double X2, double Y2, double z_m_z2)
+{
+    double result=0;
+    result = 2.0 - ( SQR(X*Y2) + SQR(X2*Y) - SQR(r*z_m_z2) ) / ( SQR(X*Y2) - SQR(X2*Y) )
+                    * std::log( SQR( X*Y2/(X2*Y) ) );
+
+    result *= 1.0 / std::pow(z_m_z2, 4);
+
+    result *= NF;
+
+    return result;
+}
+
+
+
+/***************************************************
+ * N=4 SYM kernel
+ **************************************************/
+double BKSolver::Kernel_nlo_n4_sym(double r, double X, double Y, double X2, double Y2, double z_m_z2)
+{
+    double result=0;
+
+    result = 2.0 * 2.0*std::log( r*z_m_z2/(X2*Y) )
+        + (1.0 + SQR(r*z_m_z2) / ( SQR(X*Y2) - SQR(X2*Y) )) * 2.0*std::log(X*Y2/(X2*Y) );
+    result *= SQR(r/(X*Y2*z_m_z2));
+
+    return result;
+
 }
 
 ////////////////////////////////////////////////

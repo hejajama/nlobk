@@ -59,7 +59,7 @@ int main(int argc, char* argv[])
     //cout << "N(r=0.001)=" << dipole.N(0.001) <<", N(r=0.1)=" << dipole.N(0.1) <<", N(r=10)=" << dipole.N(10) << endl;
 
     BKSolver solver(&dipole);
-    solver.Solve(2);
+    solver.Solve(4);
     cout << "BK solved!" << endl;
 
 	std::string output=std::string(argv[1]);
@@ -90,12 +90,16 @@ std::string NLOBK_CONFIG_STRING()
 {
     std::stringstream ss;
     ss << "Integration method: ";
-    if (MONTECARLO)
-        ss <<"MonteCarlo, points=" << MCINTPOINTS;
+    if (INTMETHOD_NLO == MISER)
+        ss <<"MonteCarlo Miser, points=" << MCINTPOINTS;
+    else if (INTMETHOD_NLO == VEGAS)
+        ss <<"MonteCarlo Vegas, points=" << MCINTPOINTS;
+    else if (INTMETHOD_NLO == MULTIPLE)
+        ss << "Multiple integrals (no montecarlo)";
     else
-        ss <<"Direct integration";
+        ss <<"UNKNOWN!";
     ss<< ". LO Kernel RC: ";
-    if (RC_LO == FIXED_LO)
+    if (RC_LO == FIXED_LO or EQUATION==CONFORMAL_N4)
         ss << " fixed as=" << FIXED_AS;
     else if (RC_LO == SMALLEST_LO)
         ss << " smallest dipole";
@@ -114,14 +118,14 @@ std::string NLOBK_CONFIG_STRING()
 
     ss <<". Nc=" << NC << ", Nf=" << NF;
 
-    if (!CONFORMAL_DIPOLE)
+    if (EQUATION == QCD)
     {
         if (DOUBLELOG_LO_KERNEL) ss << ". Double log term in LO kernel included";
         else ss << ". Double log term in LO kernel NOT included";
     }
-
-    if (CONFORMAL_DIPOLE) ss << ". Solving for CONFORMAL dipole";
-    else ss << ". Solving for standard NON-CONFORMAL dipole";
+    else if (EQUATION == CONFORMAL_QCD) ss << ". Solving for CONFORMAL dipole";
+    else if (EQUATION == CONFORMAL_N4) ss << ". Solving in N=4 for CONFORMAL dipole";
+    else ss << ". UNKNOWN EQUATION!!";
 
     return ss.str();
 }

@@ -25,13 +25,19 @@ const int THETAINTPOINTS = 20;
 const double INTACCURACY=0.1;
 const double MCINTACCURACY = 0.2;
 const double MAXR = 40;
-const double MINR=1e-4;
-const unsigned int RPOINTS = 80;
+const double MINR=1e-5;
+const unsigned int RPOINTS = 100;
 
-const bool MONTECARLO = true;
-const size_t MCINTPOINTS = 7e5;
+const size_t MCINTPOINTS = 5e5;
 
-const bool CONFORMAL_DIPOLE = true; // true if solve equation for the conformal dipole
+// Select what to solve
+enum Equation
+{
+    QCD,            // QCD NLO BK
+    CONFORMAL_QCD,  // Confromal NLO BK in QCD
+    CONFORMAL_N4    // Conformal NLO BK in N=4 SYM
+};
+const Equation EQUATION = CONFORMAL_N4;  
 
 const double DE_SOLVER_STEP = 0.5;
 
@@ -49,7 +55,7 @@ enum RunningCouplingNLO
     PARENT_NLO,
     SMALLEST_NLO
 };
-const double FIXED_AS = 0.01;
+const double FIXED_AS = 0.05;
 
 
 const RunningCouplingLO RC_LO = SMALLEST_LO;
@@ -60,7 +66,8 @@ const bool DOUBLELOG_LO_KERNEL = true; // include double log term from the LO ke
 enum INTEGRATION_METHOD
 {
     VEGAS,
-    MISER
+    MISER,
+    MULTIPLE            // No monte carlo
 };
 const INTEGRATION_METHOD INTMETHOD_NLO = VEGAS;
 

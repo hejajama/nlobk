@@ -85,8 +85,8 @@ double Dipole::N(double r)
     }
 
     double n = dipole_interp->Evaluate(r);
-    //if (n<0) return 0;
-    //if (n>=1.0) return 1.0;
+    if (n<0) return 0;
+    if (n>=1.0) return 1.0;
 
     return dipole_interp -> Evaluate(r);
 }
@@ -94,8 +94,8 @@ double Dipole::N(double r)
 double Dipole::S(double r)
 {
     double s=1.0-N(r);
-    //if (s<0) return 0;
-    //if (s>1.0) return 1.0;
+    if (s<0) return 0;
+    if (s>1.0) return 1.0;
     return 1.0-N(r);
 }
 
