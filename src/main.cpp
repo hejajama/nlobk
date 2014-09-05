@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
     MV ic;
 	ic.SetQsqr(0.2);
     //IC_datafile ic;
-    //ic.LoadFile("../amplitudelib_v2/amplitudelib2/nlobk_analyysit/nonconformal/nonconformal_y_1");
+    //ic.LoadFile("ics/conformal_n4_as_005_y_20");
     
     cout << "# " << NLOBK_CONFIG_STRING() << endl;
     cout << "#Initial condition is " << ic.GetString() << endl;
@@ -59,7 +59,7 @@ int main(int argc, char* argv[])
     //cout << "N(r=0.001)=" << dipole.N(0.001) <<", N(r=0.1)=" << dipole.N(0.1) <<", N(r=10)=" << dipole.N(10) << endl;
 
     BKSolver solver(&dipole);
-    solver.Solve(4);
+    solver.Solve(20);
     cout << "BK solved!" << endl;
 
 	std::string output=std::string(argv[1]);
@@ -109,7 +109,7 @@ std::string NLOBK_CONFIG_STRING()
         ss << " NO STRING IMPLEMENTED!";
 
     ss<< ". NLO Kernel RC: ";
-    if (RC_NLO == FIXED_NLO)
+    if (RC_NLO == FIXED_NLO or EQUATION==CONFORMAL_N4)
         ss << " fixed as=" << FIXED_AS;
     else if (RC_NLO == SMALLEST_NLO)
         ss << " smallest dipole";
@@ -120,12 +120,15 @@ std::string NLOBK_CONFIG_STRING()
 
     if (EQUATION == QCD)
     {
-        if (DOUBLELOG_LO_KERNEL) ss << ". Double log term in LO kernel included";
-        else ss << ". Double log term in LO kernel NOT included";
+        if (DOUBLELOG_LO_KERNEL) ss << ". QCD, Double log term in LO kernel included";
+        else ss << ". QCD, Double log term in LO kernel NOT included";
     }
     else if (EQUATION == CONFORMAL_QCD) ss << ". Solving for CONFORMAL dipole";
     else if (EQUATION == CONFORMAL_N4) ss << ". Solving in N=4 for CONFORMAL dipole";
     else ss << ". UNKNOWN EQUATION!!";
+
+    if (LO_BK)
+        ss <<" Solving Leading Order BK";
 
     return ss.str();
 }

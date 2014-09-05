@@ -25,10 +25,10 @@ const int THETAINTPOINTS = 20;
 const double INTACCURACY=0.1;
 const double MCINTACCURACY = 0.2;
 const double MAXR = 40;
-const double MINR=1e-5;
-const unsigned int RPOINTS = 100;
+const double MINR=5e-5;
+const unsigned int RPOINTS = 80;
 
-const size_t MCINTPOINTS = 5e5;
+const size_t MCINTPOINTS = 6e5;
 
 // Select what to solve
 enum Equation
@@ -71,6 +71,7 @@ enum INTEGRATION_METHOD
 };
 const INTEGRATION_METHOD INTMETHOD_NLO = VEGAS;
 
+const bool LO_BK = false;    // solve only LO BK
     
 
 #endif

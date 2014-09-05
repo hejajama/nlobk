@@ -146,24 +146,23 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         double lo = par->solver->RapidityDerivative_lo(dipole->RVal(i), &interp);
 
         double nlo=0;
-        nlo = par->solver->RapidityDerivative_nlo(dipole->RVal(i), &interp, &interp_s);
+        if (!LO_BK)
+            nlo = par->solver->RapidityDerivative_nlo(dipole->RVal(i), &interp, &interp_s);
 
 
         //#pragma omp critical
-            cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
+            //cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
         dydt[i]= lo + nlo;
 
         #pragma omp critical
         {
             ready++;
-            if (ready%20==0)
+            if (ready%50==0)
                 cout << "# y=" << y <<", ready " << ready << " / " << dipole->RPoints() << endl;
         }
-        //exit(1);
         
     }
-    exit(1);
-
+    //exit(1);
     return GSL_SUCCESS;
 }
 
@@ -321,8 +320,11 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     // N=4 is easy as the coupling does not run
     if (EQUATION == CONFORMAL_N4)
     {
-        result = FIXED_AS / (2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
-                * (1.0 - FIXED_AS * NC / (4.0*M_PI) * M_PI*M_PI/3.0);
+        result = FIXED_AS / (2.0*M_PI*M_PI) * r*r / (X*X * Y*Y);
+        if (LO_BK)
+            return result;
+        else
+            result *= (1.0 - FIXED_AS * NC / (4.0*M_PI) * M_PI*M_PI/3.0);
         return result;
     }
 
@@ -332,6 +334,10 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     if (RC_LO == FIXED_LO)
     {
         result = FIXED_AS * NC/(2.0*M_PI*M_PI) *  r*r / (X*X * Y*Y);
+
+        if (LO_BK)
+            return result;
+        
         if (EQUATION == CONFORMAL_QCD)   ///TODO: should we include ~beta terms here or not?
         {
             result *= (1.0 + FIXED_AS*NC/(4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0) );
@@ -367,15 +373,19 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         if (X < min_size) min_size = X;
         if (Y < min_size) min_size = Y;
         result = Alphas(min_size)*NC/(2.0*M_PI*M_PI) *  r*r / (X*X * Y*Y);
+
+        if (LO_BK)
+            return result;
+        
         if (EQUATION == CONFORMAL_QCD)
         {
                 result *= 1.0 + Alphas(min_size)*NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0); 
         }
         else if (DOUBLELOG_LO_KERNEL and EQUATION == QCD)
         {
-            result *= (1.0 + Alphas(min_size) * NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 
+            result *= 1.0 + Alphas(min_size) * NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 
                     - 2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) ) 
-                    ) );
+                    ) ;
         }
     }
     else
@@ -497,7 +507,7 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
             //#pragma omp critical
             if (iters>=maxiter_vegas)
             {
-                cout <<"# Integration failed, result->0, bestresult "<< result << " relerr " << abserr/result << " chi^2 "  << gsl_monte_vegas_chisq (s) << endl;
+                cout <<"# Integration failed at r=" << r <<", result->0, bestresult "<< result << " relerr " << abserr/result << " chi^2 "  << gsl_monte_vegas_chisq (s) << endl;
                 result=0;
             }
             //else
@@ -743,6 +753,7 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
     // other relevant factors
     if (EQUATION == CONFORMAL_N4)
         result *= SQR(FIXED_AS*NC)/(8.0*std::pow(M_PI, 4));
+        
     else if (EQUATION == QCD or EQUATION == CONFORMAL_QCD)
     {
         if (RC_NLO == FIXED_NLO)
