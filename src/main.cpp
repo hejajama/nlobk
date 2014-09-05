@@ -58,11 +58,14 @@ int main(int argc, char* argv[])
 
     //cout << "N(r=0.001)=" << dipole.N(0.001) <<", N(r=0.1)=" << dipole.N(0.1) <<", N(r=10)=" << dipole.N(10) << endl;
 
+    std::string output=std::string(argv[1]);
+
     BKSolver solver(&dipole);
-    solver.Solve(20);
+    solver.SetTmpOutput(output);
+    solver.Solve(200);
     cout << "BK solved!" << endl;
 
-	std::string output=std::string(argv[1]);
+	
 
     cout << "Saving to file " << output << endl;
     dipole.Save(output);

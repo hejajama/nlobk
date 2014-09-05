@@ -26,6 +26,7 @@ const double eps = 1e-20;
 BKSolver::BKSolver(Dipole* d)
 {
     dipole=d;
+    tmp_output = "";
 }
 
 struct DEHelper{
@@ -82,6 +83,10 @@ int BKSolver::Solve(double maxy)
         }
 
         yind = dipole->AddRapidity(y, ampvec);
+
+        if (tmp_output != "")
+            dipole->Save(tmp_output);
+        
         // Change Dipole interpolator to the new rapidity
         dipole->InitializeInterpolation(yind);
      
@@ -948,4 +953,9 @@ double BKSolver::Alphas(double r)
 Dipole* BKSolver::GetDipole()
 {
     return dipole;
+}
+
+void BKSolver::SetTmpOutput(std::string fname)
+{
+    tmp_output = fname;
 }

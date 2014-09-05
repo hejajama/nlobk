@@ -8,6 +8,7 @@
 
 #include "dipole.hpp"
 #include <tools/interpolation.hpp>
+#include <string>
 
 /* General solver class for the BK equation
  */
@@ -33,8 +34,11 @@ class BKSolver
         Dipole* GetDipole();
         
         double Alphas(double r);
+
+        void SetTmpOutput(std::string fname);
     private:
         Dipole* dipole;
+        std::string tmp_output;         // File which is updated along with the evolution, if empty no temporary results are saved
 
 };
 
