@@ -33,6 +33,7 @@ int main(int argc, char* argv[])
 {
     time_t start = time(0);
     string today = ctime(&start);
+    string output = "output.dat";
     
     char *hostname = new char[500];
     gethostname(hostname, 500);
@@ -43,26 +44,48 @@ int main(int argc, char* argv[])
     gsl_set_error_handler(&ErrHandler);
     //std::signal(SIGINT, SigIntHandler);
 
-    MV ic;
-	ic.SetQsqr(0.2);
-    //IC_datafile ic;
-    //ic.LoadFile("ics/conformal_n4_as_005_y_20");
+    InitialCondition* ic = NULL;
+    for (int i=1; i<argc; i++)
+    {
+        if (string(argv[i])=="-ic")
+        {
+            if (string(argv[i+1])=="FILE")
+            {
+                ic = new IC_datafile();
+                ((IC_datafile*)ic)->LoadFile(argv[i+2]);
+            }
+        }
+        else if (string(argv[i])=="-output")
+            output = argv[i+1];
+        else if (string(argv[i]).substr(0,1)=="-") 
+        {
+            cerr << "Unrecoginzed parameter " << argv[i] << endl;
+            return -1;
+        }
+    }
+    if (ic == NULL)
+    {
+        ic = new MV();
+        ((MV*)ic)->SetQsqr(0.2);
+    }
+
+    //MV ic;
+	//ic.SetQsqr(0.2);
+
     
     cout << "# " << NLOBK_CONFIG_STRING() << endl;
-    cout << "#Initial condition is " << ic.GetString() << endl;
+    cout << "#Initial condition is " << ic->GetString() << endl;
 
-    Dipole dipole(&ic);
+    Dipole dipole(ic);
 
 
     cout <<"# r grid size: " << dipole.RPoints() << " minr " << dipole.MinR() << " maxr " << dipole.MaxR() << endl;
 
     //cout << "N(r=0.001)=" << dipole.N(0.001) <<", N(r=0.1)=" << dipole.N(0.1) <<", N(r=10)=" << dipole.N(10) << endl;
 
-    std::string output=std::string(argv[1]);
-
     BKSolver solver(&dipole);
     solver.SetTmpOutput(output);
-    solver.Solve(200);
+    solver.Solve(2);
     cout << "BK solved!" << endl;
 
 	
@@ -75,6 +98,7 @@ int main(int argc, char* argv[])
     int diff = end-start;
     cout << "Solution took " << diff/60.0/60.0 << " hours" << endl;
 
+    delete ic;
     return 0;
 }
 

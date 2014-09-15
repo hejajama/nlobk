@@ -63,7 +63,7 @@ int BKSolver::Solve(double maxy)
         
     const gsl_odeiv_step_type * T = gsl_odeiv_step_rk2; // rkf45 is more accurate 
     gsl_odeiv_step * s    = gsl_odeiv_step_alloc (T, vecsize);
-    gsl_odeiv_control * c = gsl_odeiv_control_y_new (0.0, 0.01);    //abserr relerr
+    gsl_odeiv_control * c = gsl_odeiv_control_y_new (0.0, INTACCURACY);    //abserr relerr
     gsl_odeiv_evolve * e  = gsl_odeiv_evolve_alloc (vecsize);
     double h = step;  // Initial ODE solver step size
     
@@ -146,6 +146,14 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
     {
         //#pragma omp critical
         //cout <<"# r=" << dipole->RVal(i) << endl;
+
+        if (amplitude[i]==0)
+        {
+            // An ugly hack: the amplitude is froze to zero, and |dndy| becomes large,
+            // thus the de solver tries to make the step size even smaller(???)
+            dydt[i]=0;
+            continue;
+        }
 
 
         double lo = par->solver->RapidityDerivative_lo(dipole->RVal(i), &interp);
@@ -728,7 +736,11 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
             double dipole_f = dipole_interp_s->Evaluate(Y) * ( dipole_interp_s->Evaluate(X2)
                                                                 - dipole_interp_s->Evaluate(X) );
 
-            result += kernel_f * dipole_f;
+            double kernel_f_swap = solver->Kernel_nlo_conformal_fermion(r,X2,Y2,X,Y,z_m_z2);
+            double dipole_f_swap = dipole_interp_s->Evaluate(Y2) * ( dipole_interp_s->Evaluate(X)
+                                                                - dipole_interp_s->Evaluate(X2) );
+
+            result += (kernel_f * dipole_f + kernel_f_swap * dipole_f_swap)/2.0;
         }
 
         result *= -1.0; // Minus sign as the evolution is written for S but we solve N = 1-S

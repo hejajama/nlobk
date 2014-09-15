@@ -12,7 +12,7 @@
 #include <sstream>
 
 const double NC=3;
-const double NF=0;
+const double NF=3;
 
 inline double SQR(double x) { return x*x; }
 #define LINEINFO __FILE__ << ":" << __LINE__
@@ -25,10 +25,10 @@ const int THETAINTPOINTS = 20;
 const double INTACCURACY=0.1;
 const double MCINTACCURACY = 0.2;
 const double MAXR = 40;
-const double MINR=5e-5;
-const unsigned int RPOINTS = 80;
+const double MINR=1e-5;
+const unsigned int RPOINTS = 120;
 
-const size_t MCINTPOINTS = 6e5;
+const size_t MCINTPOINTS = 2e5;
 
 // Select what to solve
 enum Equation
@@ -37,9 +37,9 @@ enum Equation
     CONFORMAL_QCD,  // Confromal NLO BK in QCD
     CONFORMAL_N4    // Conformal NLO BK in N=4 SYM
 };
-const Equation EQUATION = CONFORMAL_N4;  
+const Equation EQUATION = CONFORMAL_QCD;  
 
-const double DE_SOLVER_STEP = 0.5;
+const double DE_SOLVER_STEP = 0.2;
 
 // Alpha_s in LO part
 enum RunningCouplingLO
@@ -69,7 +69,7 @@ enum INTEGRATION_METHOD
     MISER,
     MULTIPLE            // No monte carlo
 };
-const INTEGRATION_METHOD INTMETHOD_NLO = VEGAS;
+const INTEGRATION_METHOD INTMETHOD_NLO = MISER;
 
 const bool LO_BK = false;    // solve only LO BK
     
