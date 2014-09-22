@@ -63,7 +63,7 @@ int BKSolver::Solve(double maxy)
         
     const gsl_odeiv_step_type * T = gsl_odeiv_step_rk2; // rkf45 is more accurate 
     gsl_odeiv_step * s    = gsl_odeiv_step_alloc (T, vecsize);
-    gsl_odeiv_control * c = gsl_odeiv_control_y_new (0.0, INTACCURACY);    //abserr relerr
+    gsl_odeiv_control * c = gsl_odeiv_control_y_new (0.0001, INTACCURACY);    //abserr relerr
     gsl_odeiv_evolve * e  = gsl_odeiv_evolve_alloc (vecsize);
     double h = step;  // Initial ODE solver step size
     
@@ -164,7 +164,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 
 
         //#pragma omp critical
-            //cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
+            cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
         dydt[i]= lo + nlo;
 
         #pragma omp critical
@@ -706,6 +706,18 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
         
         //result = k*dipole;
         result = (k*dipole + kswap*dipole_swap)/2.0;
+
+        if (NF>0)
+        {
+            double kernel_f = solver->Kernel_nlo_fermion(r,X,Y,X2,Y2,z_m_z2);
+            double kernel_f_swap = solver->Kernel_nlo_fermion(r,X2,Y2,X,Y,z_m_z2);
+
+            double dipole_f = dipole_interp_s->Evaluate(Y) * ( dipole_interp_s->Evaluate(X2) - dipole_interp_s->Evaluate(X) );
+            double dipole_f_swap = dipole_interp_s->Evaluate(Y2) * ( dipole_interp_s->Evaluate(X) - dipole_interp_s->Evaluate(X2) );
+
+            result += (kernel_f*dipole_f + kernel_f_swap * dipole_f_swap) * (-1.0);     // Minus sign as the evolution is written for S and we solve N
+
+        }
     }
 
     // Evolution for conformal dipole
@@ -839,6 +851,10 @@ double Inthelperf_nlo_mc(double* vec, size_t dim, void* p)
     
 }
 
+/***************************************************
+* Non-conformal kernels
+* Note that as^2 nc^2 / (8pi^4) is taken out from the kernels
+****************************************************/
 
 
 /*
@@ -846,13 +862,6 @@ double Inthelperf_nlo_mc(double* vec, size_t dim, void* p)
  */
 double BKSolver::Kernel_nlo(double r, double X, double Y, double X2, double Y2, double z_m_z2)
 {
-
-    
-    
-    //if (z_m_z2 < 0.00001)
-    //	return 0;
-    //if (std::abs(X-X2)<0.00001 and std::abs(Y-Y2)<0.00001)  // this is probably != 0, but finite and small phasespace
-	//	return 0;
 
     double kernel = -2.0/std::pow(z_m_z2,4);
 
@@ -871,6 +880,26 @@ double BKSolver::Kernel_nlo(double r, double X, double Y, double X2, double Y2, 
     return kernel;
 }
 
+double BKSolver::Kernel_nlo_fermion(double r, double X, double Y, double X2, double Y2, double z_m_z2)
+{
+    double kernel=0;
+
+    kernel = 4.0 / std::pow(z_m_z2,4.0);
+
+    kernel -= 2.0*(SQR(X*Y2) + SQR(X2*Y) - SQR(r*z_m_z2) ) / ( std::pow(z_m_z2, 4.0)*(SQR(X*Y2) - SQR(X2*Y)) )
+                * 2.0*std::log(X*Y2/(X2*Y));
+
+    kernel /= 2.0;  // As the prefactor is ~1/16, and we only have 1/8 in Inthelper_nlo()
+
+    kernel *= NF/NC;        // Divided by NC, as in the kernel we have as^2 nc nf/(8pi^4), but
+                    // this kernel is multiplied yb as^2 nc^2/(8pi^4)
+
+    if (isinf(kernel) or isnan(kernel))
+        return 0;
+        
+
+    return kernel;
+}
 
 /***************************************************
 * Conformal kernels
@@ -922,7 +951,8 @@ double BKSolver::Kernel_nlo_conformal_fermion(double r, double X, double Y, doub
 
     result *= 1.0 / std::pow(z_m_z2, 4);
 
-    result *= NF;
+    result *= NF/NC;        // Divided by NC, as in the kernel we have as^2 nc nf/(8pi^4), but
+                    // this kernel is multiplied yb as^2 nc^2/(8pi^4)
 
     return result;
 }

@@ -24,11 +24,11 @@ const int RINTPOINTS=20;
 const int THETAINTPOINTS = 20;
 const double INTACCURACY=0.1;
 const double MCINTACCURACY = 0.2;
-const double MAXR = 40;
-const double MINR=1e-5;
+const double MAXR = 50;
+const double MINR=1e-6
 const unsigned int RPOINTS = 120;
 
-const size_t MCINTPOINTS = 2e5;
+const size_t MCINTPOINTS = 1e6;
 
 // Select what to solve
 enum Equation
@@ -37,9 +37,9 @@ enum Equation
     CONFORMAL_QCD,  // Confromal NLO BK in QCD
     CONFORMAL_N4    // Conformal NLO BK in N=4 SYM
 };
-const Equation EQUATION = CONFORMAL_QCD;  
+const Equation EQUATION = QCD;  
 
-const double DE_SOLVER_STEP = 0.2;
+const double DE_SOLVER_STEP = 0.1;
 
 // Alpha_s in LO part
 enum RunningCouplingLO

@@ -85,7 +85,7 @@ int main(int argc, char* argv[])
 
     BKSolver solver(&dipole);
     solver.SetTmpOutput(output);
-    solver.Solve(2);
+    solver.Solve(40);
     cout << "BK solved!" << endl;
 
 	
