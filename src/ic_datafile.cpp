@@ -51,7 +51,6 @@ int IC_datafile::LoadFile(std::string file)
 		nvals.push_back(StrToReal(n));
     }
     f.close();
-    //cout << "# Loaded data from file " << file << ", in total " << nvals.size() <<" points, minr=" << rvals[0] <<"; maxr=" << rvals[rvals.size()-1] << endl;
     
     // Interpolator
     interpolator = new Interpolator(rvals, nvals);

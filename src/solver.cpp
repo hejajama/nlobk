@@ -164,7 +164,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 
 
         //#pragma omp critical
-            cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
+            //cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
         dydt[i]= lo + nlo;
 
         #pragma omp critical
@@ -362,7 +362,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
                 11.0/3.0*std::log(SQR(r))*musqr
                 -11.0/3.0 * (SQR(X) - SQR(Y) ) / SQR(r) * std::log( SQR(X/Y) )
                 + 67.0/9.0 - SQR(M_PI)/3.0
-                - 2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) )
+                - 2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) )     ///TODO: This has nf=0
                 )
             );
         } 
@@ -392,12 +392,12 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         
         if (EQUATION == CONFORMAL_QCD)
         {
-                result *= 1.0 + Alphas(min_size)*NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0); 
+                result *= 1.0 + Alphas(min_size)*NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC); 
         }
         else if (DOUBLELOG_LO_KERNEL and EQUATION == QCD)
         {
             result *= 1.0 + Alphas(min_size) * NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 
-                    - 2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) ) 
+                    - 10.0/9.0*NF/NC - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
                     ) ;
         }
     }
@@ -712,10 +712,14 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
             double kernel_f = solver->Kernel_nlo_fermion(r,X,Y,X2,Y2,z_m_z2);
             double kernel_f_swap = solver->Kernel_nlo_fermion(r,X2,Y2,X,Y,z_m_z2);
 
-            double dipole_f = dipole_interp_s->Evaluate(Y) * ( dipole_interp_s->Evaluate(X2) - dipole_interp_s->Evaluate(X) );
-            double dipole_f_swap = dipole_interp_s->Evaluate(Y2) * ( dipole_interp_s->Evaluate(X) - dipole_interp_s->Evaluate(X2) );
+            //double dipole_f = dipole_interp_s->Evaluate(Y) * ( dipole_interp_s->Evaluate(X2) - dipole_interp_s->Evaluate(X) );
+            double dipole_f = dipole_interp->Evaluate(X) - dipole_interp->Evaluate(X2)
+                - dipole_interp->Evaluate(X)*dipole_interp->Evaluate(Y) + dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(Y);
+            //double dipole_f_swap = dipole_interp_s->Evaluate(Y2) * ( dipole_interp_s->Evaluate(X) - dipole_interp_s->Evaluate(X2) );
+            double dipole_f = dipole_interp->Evaluate(X2) - dipole_interp->Evaluate(X)
+                - dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(Y2) + dipole_interp->Evaluate(X)*dipole_interp->Evaluate(Y2);
 
-            result += (kernel_f*dipole_f + kernel_f_swap * dipole_f_swap) * (-1.0);     // Minus sign as the evolution is written for S and we solve N
+            result += -(kernel_f*dipole_f + kernel_f_swap * dipole_f_swap)/2.0;     // Minus sign as the evolution is written for S and we solve N
 
         }
     }
@@ -884,12 +888,10 @@ double BKSolver::Kernel_nlo_fermion(double r, double X, double Y, double X2, dou
 {
     double kernel=0;
 
-    kernel = 4.0 / std::pow(z_m_z2,4.0);
+    kernel = 2.0 / std::pow(z_m_z2,4.0);
 
-    kernel -= 2.0*(SQR(X*Y2) + SQR(X2*Y) - SQR(r*z_m_z2) ) / ( std::pow(z_m_z2, 4.0)*(SQR(X*Y2) - SQR(X2*Y)) )
+    kernel -= (SQR(X*Y2) + SQR(X2*Y) - SQR(r*z_m_z2) ) / ( std::pow(z_m_z2, 4.0)*(SQR(X*Y2) - SQR(X2*Y)) )
                 * 2.0*std::log(X*Y2/(X2*Y));
-
-    kernel /= 2.0;  // As the prefactor is ~1/16, and we only have 1/8 in Inthelper_nlo()
 
     kernel *= NF/NC;        // Divided by NC, as in the kernel we have as^2 nc nf/(8pi^4), but
                     // this kernel is multiplied yb as^2 nc^2/(8pi^4)

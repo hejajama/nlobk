@@ -12,7 +12,7 @@
 #include <sstream>
 
 const double NC=3;
-const double NF=3;
+const double NF=0;
 
 inline double SQR(double x) { return x*x; }
 #define LINEINFO __FILE__ << ":" << __LINE__
@@ -25,7 +25,7 @@ const int THETAINTPOINTS = 20;
 const double INTACCURACY=0.1;
 const double MCINTACCURACY = 0.2;
 const double MAXR = 50;
-const double MINR=1e-6
+const double MINR=1e-6;
 const unsigned int RPOINTS = 120;
 
 const size_t MCINTPOINTS = 1e6;
@@ -71,7 +71,7 @@ enum INTEGRATION_METHOD
 };
 const INTEGRATION_METHOD INTMETHOD_NLO = MISER;
 
-const bool LO_BK = false;    // solve only LO BK
+const bool LO_BK = true;    // solve only LO BK
     
 
 #endif
