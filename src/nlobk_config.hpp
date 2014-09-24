@@ -12,7 +12,7 @@
 #include <sstream>
 
 const double NC=3;
-const double NF=0;
+const double NF=3;
 
 inline double SQR(double x) { return x*x; }
 #define LINEINFO __FILE__ << ":" << __LINE__
@@ -58,8 +58,8 @@ enum RunningCouplingNLO
 const double FIXED_AS = 0.05;
 
 
-const RunningCouplingLO RC_LO = SMALLEST_LO;
-const RunningCouplingNLO RC_NLO = SMALLEST_NLO;
+const RunningCouplingLO RC_LO = PARENT_LO;
+const RunningCouplingNLO RC_NLO = PARENT_NLO;
 
 const bool DOUBLELOG_LO_KERNEL = true; // include double log term from the LO kernel
 
@@ -71,7 +71,7 @@ enum INTEGRATION_METHOD
 };
 const INTEGRATION_METHOD INTMETHOD_NLO = MISER;
 
-const bool LO_BK = true;    // solve only LO BK
+const bool LO_BK = false;    // solve only LO BK
     
 
 #endif

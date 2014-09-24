@@ -132,6 +132,8 @@ std::string NLOBK_CONFIG_STRING()
         ss << " smallest dipole";
     else if (RC_LO == BALITSKY_LO)
         ss << " Balitsky";
+    else if (RC_LO == PARENT_LO)
+        ss << " Parent dipole";
     else
         ss << " NO STRING IMPLEMENTED!";
 
@@ -140,6 +142,8 @@ std::string NLOBK_CONFIG_STRING()
         ss << " fixed as=" << FIXED_AS;
     else if (RC_NLO == SMALLEST_NLO)
         ss << " smallest dipole";
+    else if (RC_NLO  == PARENT_NLO)
+        ss << " Parent dipole";
     else
         ss << " NO STRING IMPLEMENTED!";
 

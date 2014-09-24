@@ -310,7 +310,7 @@ double Inthelperf_lo_theta(double theta, void* p)
  *
  * Parameters:
  *  Parent dipole size r
- *  Daughter dipole size v
+ *  Daughter dipole size z
  *  Daughter dipole angle theta [0,2\pi]
  */
 
@@ -355,7 +355,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         {
             result *= (1.0 + FIXED_AS*NC/(4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0) );
         }
-        else if (DOUBLELOG_LO_KERNEL and EQUATION == QCD)
+        else if (EQUATION == QCD)
         {
             result *= (1.0 + FIXED_AS * NC / (4.0*M_PI)  *
                 (
@@ -394,12 +394,29 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         {
                 result *= 1.0 + Alphas(min_size)*NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC); 
         }
-        else if (DOUBLELOG_LO_KERNEL and EQUATION == QCD)
+        else if (EQUATION == QCD)
         {
             result *= 1.0 + Alphas(min_size) * NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 
                     - 10.0/9.0*NF/NC - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
                     ) ;
         }
+    }
+    else if (RC_LO == PARENT_LO)
+    {
+
+        result = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y);
+        if (LO_BK)
+            return result;
+
+        if (EQUATION == QCD)
+            result *= 1.0 + Alphas(r) * NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 
+                    - 10.0/9.0*NF/NC - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
+                    ) ;
+        else if (EQUATION == CONFORMAL_QCD)
+             result *= 1.0 + Alphas(r)*NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC);
+        else
+            cerr << "Uknwon equation! " << LINEINFO << endl;
+
     }
     else
     {
@@ -716,7 +733,7 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
             double dipole_f = dipole_interp->Evaluate(X) - dipole_interp->Evaluate(X2)
                 - dipole_interp->Evaluate(X)*dipole_interp->Evaluate(Y) + dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(Y);
             //double dipole_f_swap = dipole_interp_s->Evaluate(Y2) * ( dipole_interp_s->Evaluate(X) - dipole_interp_s->Evaluate(X2) );
-            double dipole_f = dipole_interp->Evaluate(X2) - dipole_interp->Evaluate(X)
+            double dipole_f_swap = dipole_interp->Evaluate(X2) - dipole_interp->Evaluate(X)
                 - dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(Y2) + dipole_interp->Evaluate(X)*dipole_interp->Evaluate(Y2);
 
             result += -(kernel_f*dipole_f + kernel_f_swap * dipole_f_swap)/2.0;     // Minus sign as the evolution is written for S and we solve N
