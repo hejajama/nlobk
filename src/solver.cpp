@@ -170,8 +170,8 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         #pragma omp critical
         {
             ready++;
-            if (ready%50==0)
-                cout << "# y=" << y <<", ready " << ready << " / " << dipole->RPoints() << endl;
+            //if (ready%50==0)
+            //    cout << "# y=" << y <<", ready " << ready << " / " << dipole->RPoints() << endl;
         }
         
     }
@@ -359,10 +359,11 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         {
             result *= (1.0 + FIXED_AS * NC / (4.0*M_PI)  *
                 (
-                11.0/3.0*std::log(SQR(r))*musqr
-                -11.0/3.0 * (SQR(X) - SQR(Y) ) / SQR(r) * std::log( SQR(X/Y) )
+                /*11.0/3.0*std::log(SQR(r))*musqr
+                -11.0/3.0 * (SQR(X) - SQR(Y) ) / SQR(r) * std::log( SQR(X/Y) ) */   // included in as, proportional to beta
                 + 67.0/9.0 - SQR(M_PI)/3.0
-                - 2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) )     ///TODO: This has nf=0
+                - 10.0/9.0 * NF/NC
+                - 2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) )   
                 )
             );
         } 
