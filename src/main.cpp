@@ -15,10 +15,13 @@
 #include <gsl/gsl_errno.h>
 #include <ctime>
 #include <unistd.h>
+#include <tools/tools.hpp>
 
 using namespace std;
 
 string version = "0.01-dev";
+
+using namespace config;
 
 
 std::string NLOBK_CONFIG_STRING();
@@ -34,12 +37,25 @@ int main(int argc, char* argv[])
     time_t start = time(0);
     string today = ctime(&start);
     string output = "output.dat";
+    double maxy=10;
     
     char *hostname = new char[500];
     gethostname(hostname, 500);
     
     cout <<"#"<<endl<<"# NLOBK solver " << version  << " running on " << hostname << ", start at " << today << "#" << endl;
     delete[] hostname;
+
+    if (string(argv[1])=="-help")
+    {
+        cout <<"-ic FILE filename: set initial condition (default: MV)" << endl;
+        cout << "-maxy yval" << endl;
+        cout <<"-output filename_to_save_data" << endl;
+        cout << "-eq qcd,confqcd,n4: set equation to solve" << endl;
+        cout << "-rc smallest,parent,fixed: set running coupling" << endl;
+        cout << "-nolimit: do not force N>=0" << endl;
+
+        return 0;
+    }
     
     gsl_set_error_handler(&ErrHandler);
     //std::signal(SIGINT, SigIntHandler);
@@ -57,11 +73,55 @@ int main(int argc, char* argv[])
         }
         else if (string(argv[i])=="-output")
             output = argv[i+1];
+        else if (string(argv[i])=="-maxy")
+            maxy = StrToReal(argv[i+1]);
+        else if (string(argv[i])=="-eq")
+        {
+            if (string(argv[i+1])=="qcd")
+                config::EQUATION = config::QCD;
+            else if (string(argv[i+1])=="confqcd")
+                config::EQUATION = config::CONFORMAL_QCD;
+            else if (string(argv[i+1])=="n4")
+                config::EQUATION = config::CONFORMAL_N4;
+            else
+            {
+                cerr << "Unknown equation " << argv[i+1] << "! " << LINEINFO;
+                return -1;
+            }
+        }
+        else if (string(argv[i])=="-rc")
+        {
+            if (string(argv[i+1])=="parent")
+            {
+                config::RC_LO = config::PARENT_LO;
+                config::RC_NLO = config::PARENT_NLO;
+            }
+            else if (string(argv[i+1])=="smallest")
+            {
+                config::RC_LO = config::SMALLEST_LO;
+                config::RC_NLO = config::SMALLEST_NLO;
+            }
+            else if (string(argv[i+1])=="fixed")
+            {
+                config::RC_LO = config::FIXED_LO;
+                config::RC_NLO = config::FIXED_NLO;
+            }
+            else
+            {
+                cerr << "Unknown RC " << argv[i+1] << " at " << LINEINFO << endl;
+                return -1;
+            }
+        }
+
+        else if (string(argv[i])=="-nolimit")
+            config::FORCE_POSITIVE_N = false;
+
         else if (string(argv[i]).substr(0,1)=="-") 
         {
             cerr << "Unrecoginzed parameter " << argv[i] << endl;
             return -1;
         }
+
     }
     if (ic == NULL)
     {
@@ -85,7 +145,7 @@ int main(int argc, char* argv[])
 
     BKSolver solver(&dipole);
     solver.SetTmpOutput(output);
-    solver.Solve(40);
+    solver.Solve(maxy);
     cout << "BK solved!" << endl;
 
 	
@@ -116,50 +176,56 @@ void SigIntHandler(int param)
 std::string NLOBK_CONFIG_STRING()
 {
     std::stringstream ss;
-    ss << "Integration method: ";
-    if (INTMETHOD_NLO == MISER)
-        ss <<"MonteCarlo Miser, points=" << MCINTPOINTS;
-    else if (INTMETHOD_NLO == VEGAS)
-        ss <<"MonteCarlo Vegas, points=" << MCINTPOINTS;
-    else if (INTMETHOD_NLO == MULTIPLE)
-        ss << "Multiple integrals (no montecarlo)";
-    else
-        ss <<"UNKNOWN!";
-    ss<< ". LO Kernel RC: ";
-    if (RC_LO == FIXED_LO or EQUATION==CONFORMAL_N4)
-        ss << " fixed as=" << FIXED_AS;
-    else if (RC_LO == SMALLEST_LO)
-        ss << " smallest dipole";
-    else if (RC_LO == BALITSKY_LO)
-        ss << " Balitsky";
-    else if (RC_LO == PARENT_LO)
-        ss << " Parent dipole";
-    else
-        ss << " NO STRING IMPLEMENTED!";
+    
+        ss << "Integration method: ";
+        if (INTMETHOD_NLO == MISER)
+            ss <<"MonteCarlo Miser, points=" << MCINTPOINTS;
+        else if (INTMETHOD_NLO == VEGAS)
+            ss <<"MonteCarlo Vegas, points=" << MCINTPOINTS;
+        else if (INTMETHOD_NLO == MULTIPLE)
+            ss << "Multiple integrals (no montecarlo)";
+        else
+            ss <<"UNKNOWN!";
+        ss<< ". LO Kernel RC: ";
+        if (RC_LO == FIXED_LO or EQUATION==CONFORMAL_N4)
+            ss << " fixed as=" << FIXED_AS;
+        else if (RC_LO == SMALLEST_LO)
+            ss << " smallest dipole";
+        else if (RC_LO == BALITSKY_LO)
+            ss << " Balitsky";
+        else if (RC_LO == PARENT_LO)
+            ss << " Parent dipole";
+        else
+            ss << " NO STRING IMPLEMENTED!";
 
-    ss<< ". NLO Kernel RC: ";
-    if (RC_NLO == FIXED_NLO or EQUATION==CONFORMAL_N4)
-        ss << " fixed as=" << FIXED_AS;
-    else if (RC_NLO == SMALLEST_NLO)
-        ss << " smallest dipole";
-    else if (RC_NLO  == PARENT_NLO)
-        ss << " Parent dipole";
-    else
-        ss << " NO STRING IMPLEMENTED!";
+        ss<< ". NLO Kernel RC: ";
+        if (RC_NLO == FIXED_NLO or EQUATION==CONFORMAL_N4)
+            ss << " fixed as=" << FIXED_AS;
+        else if (RC_NLO == SMALLEST_NLO)
+            ss << " smallest dipole";
+        else if (RC_NLO  == PARENT_NLO)
+            ss << " Parent dipole";
+        else
+            ss << " NO STRING IMPLEMENTED!";
 
-    ss <<". Nc=" << NC << ", Nf=" << NF;
+        ss <<". Nc=" << NC << ", Nf=" << NF;
 
-    if (EQUATION == QCD)
-    {
-        if (DOUBLELOG_LO_KERNEL) ss << ". QCD, Double log term in LO kernel included";
-        else ss << ". QCD, Double log term in LO kernel NOT included";
-    }
-    else if (EQUATION == CONFORMAL_QCD) ss << ". Solving for CONFORMAL dipole";
-    else if (EQUATION == CONFORMAL_N4) ss << ". Solving in N=4 for CONFORMAL dipole";
-    else ss << ". UNKNOWN EQUATION!!";
+        if (EQUATION == QCD)
+        {
+            if (DOUBLELOG_LO_KERNEL) ss << ". QCD, Double log term in LO kernel included";
+            else ss << ". QCD, Double log term in LO kernel NOT included";
+        }
+        else if (EQUATION == CONFORMAL_QCD) ss << ". Solving for CONFORMAL dipole";
+        else if (EQUATION == CONFORMAL_N4) ss << ". Solving in N=4 for CONFORMAL dipole";
+        else ss << ". UNKNOWN EQUATION!!";
 
-    if (LO_BK)
-        ss <<" Solving Leading Order BK";
+        if (LO_BK)
+            ss <<". Solving Leading Order BK";
 
+        if (FORCE_POSITIVE_N)
+            ss << ". Amplitude is limited to [0,1]";
+        else
+            ss << ". Amplitude is not limited!";
+    
     return ss.str();
 }

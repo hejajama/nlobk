@@ -62,6 +62,6 @@ MV::MV()
 	qs0sqr = 0.10;
 	x0=0.01;
 	ec=1.0;
-	lambdaqcd=LAMBDAQCD;
+	lambdaqcd=config::LAMBDAQCD;
 	anomalous_dimension=1;
 }

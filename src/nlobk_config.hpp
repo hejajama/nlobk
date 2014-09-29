@@ -11,67 +11,77 @@
 #include <string>
 #include <sstream>
 
-const double NC=3;
-const double NF=3;
 
-inline double SQR(double x) { return x*x; }
 #define LINEINFO __FILE__ << ":" << __LINE__
+inline double SQR(double x) { return x*x; }
 
-const double LAMBDAQCD = 0.241;
-const double LAMBDAQCD2 = LAMBDAQCD*LAMBDAQCD;
-
-const int RINTPOINTS=20;
-const int THETAINTPOINTS = 20;
-const double INTACCURACY=0.1;
-const double MCINTACCURACY = 0.2;
-const double MAXR = 50;
-const double MINR=1e-6;
-const unsigned int RPOINTS = 120;
-
-const size_t MCINTPOINTS = 1e6;
-
-// Select what to solve
-enum Equation
+namespace config
 {
-    QCD,            // QCD NLO BK
-    CONFORMAL_QCD,  // Confromal NLO BK in QCD
-    CONFORMAL_N4    // Conformal NLO BK in N=4 SYM
-};
-const Equation EQUATION = QCD;  
+    extern double NC;
+    extern double NF;
 
-const double DE_SOLVER_STEP = 0.1;
-
-// Alpha_s in LO part
-enum RunningCouplingLO
-{
-    FIXED_LO,
-    PARENT_LO,
-    SMALLEST_LO,
-    BALITSKY_LO
-};
-enum RunningCouplingNLO
-{
-    FIXED_NLO,
-    PARENT_NLO,
-    SMALLEST_NLO
-};
-const double FIXED_AS = 0.05;
-
-
-const RunningCouplingLO RC_LO = PARENT_LO;
-const RunningCouplingNLO RC_NLO = PARENT_NLO;
-
-const bool DOUBLELOG_LO_KERNEL = true; // include double log term from the LO kernel
-
-enum INTEGRATION_METHOD
-{
-    VEGAS,
-    MISER,
-    MULTIPLE            // No monte carlo
-};
-const INTEGRATION_METHOD INTMETHOD_NLO = MISER;
-
-const bool LO_BK = false;    // solve only LO BK
     
+
+    extern double LAMBDAQCD;
+    extern double LAMBDAQCD2;
+
+    extern int RINTPOINTS;
+    extern int THETAINTPOINTS;
+    extern double INTACCURACY;
+    extern double MCINTACCURACY;
+    extern double MAXR;
+    extern double MINR;
+    extern unsigned int RPOINTS;
+
+    extern size_t MCINTPOINTS;
+
+    // Select what to solve
+    enum Equation
+    {
+        QCD,            // QCD NLO BK
+        CONFORMAL_QCD,  // Confromal NLO BK in QCD
+        CONFORMAL_N4    // Conformal NLO BK in N=4 SYM
+    };
+    extern Equation EQUATION;  
+
+    extern double DE_SOLVER_STEP;
+
+    // Alpha_s in LO part
+    enum RunningCouplingLO
+    {
+        FIXED_LO,
+        PARENT_LO,
+        SMALLEST_LO,
+        BALITSKY_LO
+    };
+    enum RunningCouplingNLO
+    {
+        FIXED_NLO,
+        PARENT_NLO,
+        SMALLEST_NLO
+    };
+    extern double FIXED_AS;
+
+
+    extern RunningCouplingLO RC_LO;
+    extern RunningCouplingNLO RC_NLO;
+
+    extern bool DOUBLELOG_LO_KERNEL; // include double log term from the LO kernel
+
+    enum INTEGRATION_METHOD
+    {
+        VEGAS,
+        MISER,
+        MULTIPLE            // No monte carlo
+    };
+    extern INTEGRATION_METHOD INTMETHOD_NLO;
+
+    extern bool LO_BK ;    // solve only LO BK
+
+    extern bool FORCE_POSITIVE_N;   // Force N(r)>=0
+
+
+    
+}
 
 #endif

@@ -22,6 +22,7 @@
 
 // Integration constants
 const double eps = 1e-20;
+using namespace config;
 
 BKSolver::BKSolver(Dipole* d)
 {
@@ -116,7 +117,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 
         double n = amplitude[i];
         if (n>1.0) n=1.0;
-        if (n<0) n=0;
+        if (n<0 and config::FORCE_POSITIVE_N) n=0;
         nvals.push_back(n);
 
         if (amplitude[i]>0.9999)
@@ -124,7 +125,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         
         double s = 1.0-amplitude[i];
         if (s<0) s=0;
-        if (s>1) s=1.0;
+        if (s>1 and config::FORCE_POSITIVE_N) s=1.0;
         yvals_s.push_back(s);
     }
     Interpolator interp(rvals,nvals);
@@ -147,13 +148,13 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         //#pragma omp critical
         //cout <<"# r=" << dipole->RVal(i) << endl;
 
-        if (amplitude[i]==0)
+        /*if (amplitude[i]==0 and FORCE_POSITIVE_N)
         {
             // An ugly hack: the amplitude is froze to zero, and |dndy| becomes large,
             // thus the de solver tries to make the step size even smaller(???)
             dydt[i]=0;
             continue;
-        }
+        }*/
 
 
         double lo = par->solver->RapidityDerivative_lo(dipole->RVal(i), &interp);
