@@ -52,6 +52,8 @@ int main(int argc, char* argv[])
         cout <<"-output filename_to_save_data" << endl;
         cout << "-eq qcd,confqcd,n4: set equation to solve" << endl;
         cout << "-rc smallest,parent,fixed: set running coupling" << endl;
+        cout << "-lo: solve LO BK" << endl;
+        cout << "-nf nf: set number of quark flavors" << endl;
         cout << "-nolimit: do not force N>=0" << endl;
 
         return 0;
@@ -112,7 +114,17 @@ int main(int argc, char* argv[])
                 return -1;
             }
         }
-
+        else if (string(argv[i])=="-lo")
+            config::LO_BK = true;
+        else if (string(argv[i])=="-nf")
+        {
+            config::NF = StrToInt(argv[i+1]);
+            if (config::NF != 0 and config::NF != 3)
+            {
+                cerr << "Invalid Nf=" << config::NF << " " << LINEINFO << endl;
+                return -1;
+            }
+        }
         else if (string(argv[i])=="-nolimit")
             config::FORCE_POSITIVE_N = false;
 

@@ -40,7 +40,7 @@ namespace config
 
      INTEGRATION_METHOD INTMETHOD_NLO = MISER;
 
-     bool LO_BK = true;    // solve only LO BK
+     bool LO_BK = false;    // solve only LO BK
 
      bool FORCE_POSITIVE_N = true;
 }
