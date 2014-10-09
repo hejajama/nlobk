@@ -930,7 +930,16 @@ double BKSolver::Kernel_nlo_conformal_1(double r, double X, double Y, double X2,
 {
     double result = 0;
 
+    // Own result
+    result = 2.0 * 2.0*std::log(r*z_m_z2/(X2*Y)) + ( SQR(X*Y2) - SQR(X2*Y) + SQR(r*z_m_z2) ) / (SQR(X*Y2) - SQR(X2*Y) ) * 2.0*std::log(X*Y2/(X2*Y) );
+    result *= SQR(r/(X*Y2*z_m_z2));
 
+    result += 2.0/std::pow(z_m_z2, 4.0) + ( SQR(X*Y2) + SQR(X2*Y) - 4.0*SQR(r*z_m_z2) )/( std::pow(z_m_z2,4.0)*(SQR(X*Y2) - SQR(X2*Y) ) ) * 2.0*std::log(X*Y2/(X2*Y));
+
+    return result;
+
+    // Original conformal bk paper:
+    /*
 	
     result = ( SQR(r/z_m_z2) * (1.0/SQR(X*Y2) - 1.0/SQR(X2*Y) )
                 + std::pow(r,4) / ( SQR(X*Y2) - SQR(X2*Y) ) * ( 1.0/SQR(X*Y2) + 1.0/SQR(X2*Y) )
@@ -949,11 +958,18 @@ double BKSolver::Kernel_nlo_conformal_1(double r, double X, double Y, double X2,
                         // but as the gluon part has prefactor as^2 Nc^2/(8pi^4), conformal kernels 1 and 2 are
                         // divided by 2 here
     return result;
+    */
 }
 
 
 double BKSolver::Kernel_nlo_conformal_2(double r, double X, double Y, double X2, double Y2, double z_m_z2)
 {
+    // Multiplied by S(X)S(z-z')S(Y')-S(X')S(z-z')S(Y), in original conformal bk paper, not in my calculation
+
+    return 0;
+
+    /*
+    
     double result = 0;
     result = (SQR(r/(z_m_z2*X*Y2)) + std::pow(r,4)/(SQR(X*Y2)*(SQR(X*Y2) - SQR(X2*Y) ) )  ) * std::log(SQR(X*Y2/(X2*Y)));
     result += 2.0*SQR(r/(z_m_z2*X*Y2)) * 2.0*std::log( r*z_m_z2 / (X2*Y) );
@@ -962,6 +978,7 @@ double BKSolver::Kernel_nlo_conformal_2(double r, double X, double Y, double X2,
                         // but as the gluon part has prefactor as^2 Nc^2/(8pi^4), conformal kernels 1 and 2 are
                         // divided by 2 here
     return result;
+    */
 }
 
 double BKSolver::Kernel_nlo_conformal_fermion(double r, double X, double Y, double X2, double Y2, double z_m_z2)
