@@ -165,7 +165,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 
 
         //#pragma omp critical
-            //cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
+            cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
         dydt[i]= lo + nlo;
 
         #pragma omp critical
@@ -176,7 +176,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         }
         
     }
-    //exit(1);
+    exit(1);
     return GSL_SUCCESS;
 }
 
@@ -394,7 +394,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         
         if (EQUATION == CONFORMAL_QCD)
         {
-                result *= 1.0 + Alphas(min_size)*NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC); 
+                result *= 1.0 + Alphas(min_size)*NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC);
         }
         else if (EQUATION == QCD)
         {
@@ -568,7 +568,7 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
                     (&fun, min, max, 4, calls, rnd, s,
                                        &result, &abserr);
                     //if (std::abs(abserr/result)>0.2)
-                    //      cerr << "#r=" << r << " misermc integral failed, result " << result << " relerr " << std::abs(abserr/result) << ", again.... (iter " << iter << ")" << endl;
+                          //cerr << "#r=" << r << " misermc integral failed, result " << result << " relerr " << std::abs(abserr/result) << ", again.... (iter " << iter << ")" << endl;
             } while (std::abs(abserr/result)>MCINTACCURACY);
             //gsl_monte_plain_free (s);
             gsl_monte_miser_free(s);
@@ -763,6 +763,7 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
             - dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y2);
 
         result = (k1*dipole1 + k2*dipole2 + k1_swap*dipole1_swap + k2_swap*dipole2_swap)/2.0;
+        
 
         /// Fermion part
         if (NF > 0)
@@ -924,19 +925,22 @@ double BKSolver::Kernel_nlo_fermion(double r, double X, double Y, double X2, dou
 
 /***************************************************
 * Conformal kernels
-* Note that as^2 nc^2 / (8pi^2) is taken out from the kernels
+* Note that as^2 nc^2 / (8pi^4) is taken out from the kernels
 ****************************************************/
 double BKSolver::Kernel_nlo_conformal_1(double r, double X, double Y, double X2, double Y2, double z_m_z2)
 {
     double result = 0;
 
     // Own result
+    
     result = 2.0 * 2.0*std::log(r*z_m_z2/(X2*Y)) + ( SQR(X*Y2) - SQR(X2*Y) + SQR(r*z_m_z2) ) / (SQR(X*Y2) - SQR(X2*Y) ) * 2.0*std::log(X*Y2/(X2*Y) );
     result *= SQR(r/(X*Y2*z_m_z2));
 
-    result += 2.0/std::pow(z_m_z2, 4.0) + ( SQR(X*Y2) + SQR(X2*Y) - 4.0*SQR(r*z_m_z2) )/( std::pow(z_m_z2,4.0)*(SQR(X*Y2) - SQR(X2*Y) ) ) * 2.0*std::log(X*Y2/(X2*Y));
+    result += -2.0/std::pow(z_m_z2, 4.0) + ( SQR(X*Y2) + SQR(X2*Y) - 4.0*SQR(r*z_m_z2) )/( std::pow(z_m_z2,4.0)*(SQR(X*Y2) - SQR(X2*Y) ) ) * 2.0*std::log(X*Y2/(X2*Y));
 
     return result;
+    
+    
 
     // Original conformal bk paper:
     /*
@@ -964,14 +968,14 @@ double BKSolver::Kernel_nlo_conformal_1(double r, double X, double Y, double X2,
 
 double BKSolver::Kernel_nlo_conformal_2(double r, double X, double Y, double X2, double Y2, double z_m_z2)
 {
-    // Multiplied by S(X)S(z-z')S(Y')-S(X')S(z-z')S(Y), in original conformal bk paper, not in my calculation
+    //Multiplied by S(X)S(z-z')S(Y')-S(X')S(z-z')S(Y), in original conformal bk paper, not in my calculation
 
     return 0;
 
     /*
     
     double result = 0;
-    result = (SQR(r/(z_m_z2*X*Y2)) + std::pow(r,4)/(SQR(X*Y2)*(SQR(X*Y2) - SQR(X2*Y) ) )  ) * std::log(SQR(X*Y2/(X2*Y)));
+    result = (SQR(r/(z_m_z2*X*Y2)) + std::pow(r,4)/(SQR(X*Y2)*(SQR(X*Y2) - SQR(X2*Y) ) )  ) * 2.0*std::log(X*Y2/(X2*Y));
     result += 2.0*SQR(r/(z_m_z2*X*Y2)) * 2.0*std::log( r*z_m_z2 / (X2*Y) );
 
     result /= 2.0;      // Conformal kernel is multiplied by as^2 Nc^2/(8pi^4) in the Inthelperf_nlo function,
