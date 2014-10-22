@@ -80,6 +80,8 @@ namespace config
 
     extern bool FORCE_POSITIVE_N;   // Force N(r)>=0
 
+    extern double ALPHAS_SCALING;   // C^2
+
 
     
 }

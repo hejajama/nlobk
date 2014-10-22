@@ -38,6 +38,8 @@ int main(int argc, char* argv[])
     string today = ctime(&start);
     string output = "output.dat";
     double maxy=10;
+
+    bool mve=false;
     
     char *hostname = new char[500];
     gethostname(hostname, 500);
@@ -55,6 +57,7 @@ int main(int argc, char* argv[])
         cout << "-lo: solve LO BK" << endl;
         cout << "-nf nf: set number of quark flavors" << endl;
         cout << "-nolimit: do not force N>=0" << endl;
+        cout << "-ic [mv,mve,mvgamma] set initial condition" << endl;
 
         return 0;
     }
@@ -71,6 +74,32 @@ int main(int argc, char* argv[])
             {
                 ic = new IC_datafile();
                 ((IC_datafile*)ic)->LoadFile(argv[i+2]);
+            }
+            else
+            {
+                ic = new MV();
+                if (string(argv[i+1])=="mv")
+                {
+                    ((MV*)ic)->SetQsqr(0.104);
+                    config::ALPHAS_SCALING = 14.5;
+                }
+                else if (string(argv[i+1])=="mve")
+                {
+                    ((MV*)ic)->SetQsqr(0.06);
+                    ((MV*)ic)->SetE(18.9);
+                    config::ALPHAS_SCALING = 7.2;
+                }
+                else if (string(argv[i+1])=="mvgamma")
+                {
+                    ((MV*)ic)->SetQsqr(0.165);
+                    ((MV*)ic)->SetAnomalousDimension(1.135);
+                    config::ALPHAS_SCALING = 6.35;
+                }
+                else
+                {
+                    cerr << "Uknown initial condition " << argv[i+1] << endl;
+                    return -1;
+                }
             }
         }
         else if (string(argv[i])=="-output")
@@ -116,6 +145,8 @@ int main(int argc, char* argv[])
         }
         else if (string(argv[i])=="-lo")
             config::LO_BK = true;
+        else if (string(argv[i])=="-mve")
+            mve=true;
         else if (string(argv[i])=="-nf")
         {
             config::NF = StrToInt(argv[i+1]);
@@ -125,6 +156,9 @@ int main(int argc, char* argv[])
                 return -1;
             }
         }
+
+            
+        
         else if (string(argv[i])=="-nolimit")
             config::FORCE_POSITIVE_N = false;
 
@@ -137,12 +171,9 @@ int main(int argc, char* argv[])
     }
     if (ic == NULL)
     {
-        ic = new MV();
-        ((MV*)ic)->SetQsqr(0.2);
+        cerr << "Initial condition was not set!" << endl;
+        return -1;
     }
-
-    //MV ic;
-	//ic.SetQsqr(0.2);
 
     
     cout << "# " << NLOBK_CONFIG_STRING() << endl;
@@ -238,6 +269,8 @@ std::string NLOBK_CONFIG_STRING()
             ss << ". Amplitude is limited to [0,1]";
         else
             ss << ". Amplitude is not limited!";
+
+        ss << "Alphas scaling C^2=" << config::ALPHAS_SCALING << endl;
     
     return ss.str();
 }

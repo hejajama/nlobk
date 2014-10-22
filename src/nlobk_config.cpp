@@ -43,4 +43,6 @@ namespace config
      bool LO_BK = false;    // solve only LO BK
 
      bool FORCE_POSITIVE_N = true;
+
+     double ALPHAS_SCALING = 1.0; 
 }

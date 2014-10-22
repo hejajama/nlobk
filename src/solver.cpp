@@ -80,7 +80,8 @@ int BKSolver::Solve(double maxy)
                 << ": " << gsl_strerror(status) << " (" << status << ")"
                 << " y=" << y << ", h=" << h << endl;
             }
-            cout << "Evolved up to " << y << "/" << nexty << ", h=" << h << endl;
+            if (std::abs(y - (int)(y+0.5))<0.01)
+                cout << "Evolved up to " << y << "/" << nexty << ", h=" << h << endl;
         }
 
         yind = dipole->AddRapidity(y, ampvec);
@@ -141,21 +142,9 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
     interp_s.SetOverflow(0.0);
 
 
-    int ready=0;
 	#pragma omp parallel for
     for (unsigned int i=0; i< dipole->RPoints(); i+=1)
     {
-        //#pragma omp critical
-        //cout <<"# r=" << dipole->RVal(i) << endl;
-
-        /*if (amplitude[i]==0 and FORCE_POSITIVE_N)
-        {
-            // An ugly hack: the amplitude is froze to zero, and |dndy| becomes large,
-            // thus the de solver tries to make the step size even smaller(???)
-            dydt[i]=0;
-            continue;
-        }*/
-
 
         double lo = par->solver->RapidityDerivative_lo(dipole->RVal(i), &interp);
 
@@ -165,18 +154,11 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 
 
         //#pragma omp critical
-            cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
+            //cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
         dydt[i]= lo + nlo;
-
-        #pragma omp critical
-        {
-            ready++;
-            //if (ready%50==0)
-            //    cout << "# y=" << y <<", ready " << ready << " / " << dipole->RPoints() << endl;
-        }
         
     }
-    exit(1);
+    //exit(1);
     return GSL_SUCCESS;
 }
 
@@ -1020,7 +1002,7 @@ double BKSolver::Kernel_nlo_n4_sym(double r, double X, double Y, double X2, doub
 // Running coupling
 double BKSolver::Alphas(double r)
 {
-	double Csqr=1;
+	double Csqr=config::ALPHAS_SCALING;
 	double scalefactor = 4.0*Csqr;
 	double rsqr = r*r;
 	double maxalphas=0.7;
