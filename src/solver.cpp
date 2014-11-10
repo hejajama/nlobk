@@ -152,13 +152,16 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         if (!LO_BK)
             nlo = par->solver->RapidityDerivative_nlo(dipole->RVal(i), &interp, &interp_s);
 
-
-        //#pragma omp critical
-            //cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
+        if (config::DNDY)
+        {
+            #pragma omp critical
+                cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
+        }
         dydt[i]= lo + nlo;
         
     }
-    //exit(1);
+    if (config::DNDY)
+        exit(1);
     return GSL_SUCCESS;
 }
 
@@ -380,9 +383,13 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         }
         else if (EQUATION == QCD)
         {
-            result *= 1.0 + Alphas(min_size) * NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 
-                    - 10.0/9.0*NF/NC - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
-                    ) ;
+            result *=
+                1.0 + Alphas(min_size) * NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 
+                    - 10.0/9.0*NF/NC
+                    - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
+                    ) ; 
+                /*- Alphas(min_size) * NC / (4.0*M_PI) * 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r );*/
+                    
         }
     }
     else if (RC_LO == PARENT_LO)
@@ -915,6 +922,8 @@ double BKSolver::Kernel_nlo_conformal_1(double r, double X, double Y, double X2,
 
     // Own result
     
+    //return 2.0 * 2.0*std::log(r*z_m_z2/(X2*Y)) * SQR(r/(X*Y2*z_m_z2));  // only lnr
+    
     result = 2.0 * 2.0*std::log(r*z_m_z2/(X2*Y)) + ( SQR(X*Y2) - SQR(X2*Y) + SQR(r*z_m_z2) ) / (SQR(X*Y2) - SQR(X2*Y) ) * 2.0*std::log(X*Y2/(X2*Y) );
     result *= SQR(r/(X*Y2*z_m_z2));
 
@@ -969,9 +978,10 @@ double BKSolver::Kernel_nlo_conformal_2(double r, double X, double Y, double X2,
 
 double BKSolver::Kernel_nlo_conformal_fermion(double r, double X, double Y, double X2, double Y2, double z_m_z2)
 {
+
     double result=0;
     result = 2.0 - ( SQR(X*Y2) + SQR(X2*Y) - SQR(r*z_m_z2) ) / ( SQR(X*Y2) - SQR(X2*Y) )
-                    * std::log( SQR( X*Y2/(X2*Y) ) );
+                    * 2.0*std::log(  X*Y2/(X2*Y) );
 
     result *= 1.0 / std::pow(z_m_z2, 4);
 

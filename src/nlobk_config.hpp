@@ -82,6 +82,8 @@ namespace config
 
     extern double ALPHAS_SCALING;   // C^2
 
+    extern bool DNDY;   // Print only dn/dy and exit
+
 
     
 }

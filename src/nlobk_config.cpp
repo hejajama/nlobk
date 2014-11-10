@@ -44,5 +44,7 @@ namespace config
 
      bool FORCE_POSITIVE_N = true;
 
-     double ALPHAS_SCALING = 1.0; 
+     double ALPHAS_SCALING = 1.0;
+
+     bool DNDY=false;
 }
