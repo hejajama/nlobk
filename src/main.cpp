@@ -83,6 +83,11 @@ int main(int argc, char* argv[])
                     ((MV*)ic)->SetQsqr(0.104);
                     config::ALPHAS_SCALING = 14.5;
                 }
+                else if (string(argv[i+1])=="mv02")
+                {
+                    ((MV*)ic)->SetQsqr(0.2);
+                    config::ALPHAS_SCALING = 1;
+                }
                 else if (string(argv[i+1])=="mve")
                 {
                     ((MV*)ic)->SetQsqr(0.06);
