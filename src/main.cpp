@@ -88,6 +88,11 @@ int main(int argc, char* argv[])
                     ((MV*)ic)->SetQsqr(0.2);
                     config::ALPHAS_SCALING = 1;
                 }
+                else if (string(argv[i+1])=="mv1")
+                {
+                    ((MV*)ic)->SetQsqr(1);
+                    config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
+                }
                 else if (string(argv[i+1])=="mve")
                 {
                     ((MV*)ic)->SetQsqr(0.06);
@@ -197,6 +202,9 @@ int main(int argc, char* argv[])
 
     //cout << "N(r=0.001)=" << dipole.N(0.001) <<", N(r=0.1)=" << dipole.N(0.1) <<", N(r=10)=" << dipole.N(10) << endl;
 
+    if (config::DNDY)
+        cout << "# r   dN/dy [K1]   dN/dy [K2]  N" << endl;
+
     BKSolver solver(&dipole);
     solver.SetTmpOutput(output);
     solver.Solve(maxy);
@@ -281,7 +289,7 @@ std::string NLOBK_CONFIG_STRING()
         else
             ss << ". Amplitude is not limited!";
 
-        ss << " Alphas scaling C^2=" << config::ALPHAS_SCALING << endl;
+        ss << " Alphas scaling C^2=" << config::ALPHAS_SCALING ;
     
     return ss.str();
 }

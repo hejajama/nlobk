@@ -379,6 +379,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         
         if (EQUATION == CONFORMAL_QCD)
         {
+                
                 result *= 1.0 + Alphas(min_size)*NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC);
         }
         else if (EQUATION == QCD)
@@ -391,6 +392,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
                 /*- Alphas(min_size) * NC / (4.0*M_PI) * 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r );*/
                     
         }
+        return result;
     }
     else if (RC_LO == PARENT_LO)
     {
@@ -920,6 +922,16 @@ double BKSolver::Kernel_nlo_conformal_1(double r, double X, double Y, double X2,
 {
     double result = 0;
 
+    
+    // TEST
+    // ok, but numerically more unstable
+    /*result = Kernel_nlo(r,X,Y,X2,Y2,z_m_z2);
+    result += 2.0 * 2.0*std::log(r*z_m_z2/(X2*Y)) * SQR(r/(X*Y2*z_m_z2));
+    return result;
+    */
+
+    
+
     // Own result
     
     //return 2.0 * 2.0*std::log(r*z_m_z2/(X2*Y)) * SQR(r/(X*Y2*z_m_z2));  // only lnr
@@ -974,6 +986,7 @@ double BKSolver::Kernel_nlo_conformal_2(double r, double X, double Y, double X2,
                         // divided by 2 here
     return result;
     */
+    
 }
 
 double BKSolver::Kernel_nlo_conformal_fermion(double r, double X, double Y, double X2, double Y2, double z_m_z2)
@@ -1016,13 +1029,24 @@ double BKSolver::Alphas(double r)
 	double scalefactor = 4.0*Csqr;
 	double rsqr = r*r;
 	double maxalphas=0.7;
-	double lambdaqcd=LAMBDAQCD;
-        
+	double lambdaqcd=config::LAMBDAQCD;
+    const double alphas_mu0=2.5;    // mu0/lqcd
+    const double alphas_freeze_c=0.2;
+
+    double b0 = (11.0*config::NC - 2.0*config::NF)/3.0;
+
+    return 4.0*M_PI / ( b0 * std::log(
+		std::pow( std::pow(alphas_mu0, 2.0/alphas_freeze_c) + std::pow(4.0*Csqr/(rsqr*lambdaqcd*lambdaqcd), 1.0/alphas_freeze_c), alphas_freeze_c)	
+		) );
+    
+
+    /*    
 	if (scalefactor/(rsqr*lambdaqcd*lambdaqcd) < 1.0) return maxalphas;
 	double alpha = 12.0*M_PI/( (11.0*NC-2.0*NF)*std::log(scalefactor/ (rsqr*lambdaqcd*lambdaqcd) ) );
 	if (alpha>maxalphas)
 		return maxalphas;
 	return alpha;
+    */
 }
 
 
