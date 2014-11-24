@@ -356,7 +356,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     }
     else if (RC_LO == BALITSKY_LO)
     {
-        /*double alphas_y = Alphas(Y);
+        double alphas_y = Alphas(Y);
         double alphas_x = Alphas(X);
         result = 
          NC/(2.0*SQR(M_PI))*Alphas(r)
@@ -364,8 +364,8 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
             SQR(r) / ( SQR(X) * SQR(Y) )
             + 1.0/SQR(Y)*(alphas_y/alphas_x - 1.0)
             + 1.0/SQR(X)*(alphas_x/alphas_y - 1.0)
-            );*/
-        cerr << "Balitsky kernel is not supported yet! " << LINEINFO << endl;
+            );
+        return result;
     }
     else if (RC_LO == SMALLEST_LO)
     {

@@ -147,6 +147,8 @@ int main(int argc, char* argv[])
                 config::RC_LO = config::FIXED_LO;
                 config::RC_NLO = config::FIXED_NLO;
             }
+            else if (string(argv[i+1])=="balitsky")
+                config::RC_LO = config::BALITSKY_LO;
             else
             {
                 cerr << "Unknown RC " << argv[i+1] << " at " << LINEINFO << endl;
@@ -191,6 +193,13 @@ int main(int argc, char* argv[])
         return -1;
     }
 
+
+
+    if (config::RC_LO == config::BALITSKY_LO and !config::LO_BK)
+    {
+        cerr << "Balitsky kernel set, but we should solve nlo bk?? " << LINEINFO << endl;
+        exit(1);
+    }
     
     cout << "# " << NLOBK_CONFIG_STRING() << endl;
     cout << "#Initial condition is " << ic->GetString() << endl;
