@@ -17,6 +17,7 @@ class BKSolver
 {
     public:
         BKSolver(Dipole* d);    // Constructor takes the dipole amplitude class
+        BKSolver();             // Empty constructor, s.t. one can e.g. evaluate alphas
         int Solve(double maxy);	// Solve up to maxy
 
         double Kernel_lo(double r, double v, double theta);

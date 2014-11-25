@@ -78,6 +78,8 @@ namespace config
 
     extern bool LO_BK ;    // solve only LO BK
 
+    extern bool ONLY_NLO;   // do not keep as^1 terms
+
     extern bool FORCE_POSITIVE_N;   // Force N(r)>=0
 
     extern double ALPHAS_SCALING;   // C^2

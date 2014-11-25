@@ -47,4 +47,6 @@ namespace config
      double ALPHAS_SCALING = 1.0;
 
      bool DNDY=false;
+
+     bool ONLY_NLO = false;
 }

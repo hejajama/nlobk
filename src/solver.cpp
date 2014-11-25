@@ -34,6 +34,11 @@ struct DEHelper{
     BKSolver* solver;
 };
 
+BKSolver::BKSolver()
+{
+}
+
+
 int Evolve(double y, const double amplitude[], double dydt[], void *params);
 int BKSolver::Solve(double maxy)
 {
@@ -329,7 +334,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 
     ////// QCD
 
-    // Running coupling
+    // Fixed as
     if (RC_LO == FIXED_LO)
     {
         result = FIXED_AS * NC/(2.0*M_PI*M_PI) *  r*r / (X*X * Y*Y);
@@ -369,44 +374,66 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     }
     else if (RC_LO == SMALLEST_LO)
     {
+        double as = 0;
         double min_size = r;
         if (X < min_size) min_size = X;
         if (Y < min_size) min_size = Y;
-        result = Alphas(min_size)*NC/(2.0*M_PI*M_PI) *  r*r / (X*X * Y*Y);
+        as = Alphas(min_size);
+        
+       
+
+        result = as*NC/(2.0*M_PI*M_PI) *  r*r / (X*X * Y*Y);
 
         if (LO_BK)
+        {
             return result;
+        }
+            
+
+        double lo = 1.0;
+        if (config::ONLY_NLO)
+            lo = 0;
         
         if (EQUATION == CONFORMAL_QCD)
         {
-                
-                result *= 1.0 + Alphas(min_size)*NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC);
+
+                result *= lo + as*NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC);
         }
         else if (EQUATION == QCD)
         {
             result *=
-                1.0 + Alphas(min_size) * NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 
+                lo + as * NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 
                     - 10.0/9.0*NF/NC
                     - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
                     ) ; 
-                /*- Alphas(min_size) * NC / (4.0*M_PI) * 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r );*/
+                /*- as * NC / (4.0*M_PI) * 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r );*/
                     
         }
         return result;
     }
+    
     else if (RC_LO == PARENT_LO)
     {
-
+        double lo = 1.0;
+        if (config::ONLY_NLO)
+            lo = 0;
+        
         result = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y);
         if (LO_BK)
-            return result;
+        {
+            return result * (lo + Alphas(r) * NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC - 11.0/3.0*( SQR(X)-SQR(Y) )/SQR(r) * 2.0*std::log(X/Y) ) );
+        }
+            
+
+        
 
         if (EQUATION == QCD)
-            result *= 1.0 + Alphas(r) * NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 
-                    - 10.0/9.0*NF/NC - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
+            result *= 1.0 + Alphas(r) * NC / (4.0*M_PI)
+                * ( 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC - 11.0/3.0*( SQR(X)-SQR(Y) )/SQR(r) * 2.0*std::log(X/Y)  
+                    - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
                     ) ;
         else if (EQUATION == CONFORMAL_QCD)
-             result *= 1.0 + Alphas(r)*NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC);
+             result *= 1.0 + Alphas(r)*NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC - 11.0/3.0*( SQR(X)-SQR(Y) )/SQR(r) * 2.0*std::log(X/Y) ) ;
         else
             cerr << "Uknwon equation! " << LINEINFO << endl;
 

@@ -53,6 +53,7 @@ int main(int argc, char* argv[])
         cout << "-eq qcd,confqcd,n4: set equation to solve" << endl;
         cout << "-rc smallest,parent,fixed: set running coupling" << endl;
         cout << "-lo: solve LO BK" << endl;
+        cout << "-only_nlo: keep only nlo terms" << endl;
         cout << "-nf nf: set number of quark flavors" << endl;
         cout << "-nolimit: do not force N>=0" << endl;
         cout << "-ic [mv,mve,mvgamma] set initial condition" << endl;
@@ -157,6 +158,8 @@ int main(int argc, char* argv[])
         }
         else if (string(argv[i])=="-lo")
             config::LO_BK = true;
+        else if (string(argv[i])=="-only_nlo")
+            config::ONLY_NLO = true;
         else if (string(argv[i])=="-nlo")
             config::LO_BK = false;
         else if (string(argv[i])=="-nf")
@@ -187,17 +190,26 @@ int main(int argc, char* argv[])
         }
 
     }
+
+
+    /* Check that configs are not contraversal
+     */
+
     if (ic == NULL)
     {
         cerr << "Initial condition was not set!" << endl;
         return -1;
     }
 
-
-
     if (config::RC_LO == config::BALITSKY_LO and !config::LO_BK)
     {
         cerr << "Balitsky kernel set, but we should solve nlo bk?? " << LINEINFO << endl;
+        exit(1);
+    }
+
+    if (config::ONLY_NLO == true and config::LO_BK == true)
+    {
+        cerr << "Asked to solve LO bk with only NLO terms!" << endl;
         exit(1);
     }
     
@@ -290,8 +302,6 @@ std::string NLOBK_CONFIG_STRING()
         else if (EQUATION == CONFORMAL_N4) ss << ". Solving in N=4 for CONFORMAL dipole";
         else ss << ". UNKNOWN EQUATION!!";
 
-        if (LO_BK)
-            ss <<". Solving Leading Order BK";
 
         if (FORCE_POSITIVE_N)
             ss << ". Amplitude is limited to [0,1].";
@@ -299,6 +309,15 @@ std::string NLOBK_CONFIG_STRING()
             ss << ". Amplitude is not limited!";
 
         ss << " Alphas scaling C^2=" << config::ALPHAS_SCALING ;
+        ss << endl;
+        BKSolver sol;
+        ss << "# Alphas(r=1 GeV^-1) = " << sol.Alphas(1) << endl;
+        ss << "# Order: ";
+        if (LO_BK)
+            ss <<"LO";
+        else
+            ss << "NLO";
+        if (config::ONLY_NLO) ss << ", keeping only NLO terms";
     
     return ss.str();
 }
