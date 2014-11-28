@@ -402,8 +402,9 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         }
         if (EQUATION==CONFORMAL_QCD)
         {
-            cerr << "Balitsky kernel for confqcd is missing! " << LINEINFO << endl;
-            exit(1);
+            result = lo*result + Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
+                        * Alphas(r) * NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0 );
+            return result;
         }
     }
     else if (RC_LO == SMALLEST_LO)
@@ -441,7 +442,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
                         - 10.0/9.0*NF/NC
                     - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
                     ) ; 
-                /*- as * NC / (4.0*M_PI) * 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r );*/
+                //- as * NC / (4.0*M_PI) * 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r );
                     
         }
         return result;
