@@ -117,6 +117,24 @@ int main(int argc, char* argv[])
                     ((MV*)ic)->SetAnomalousDimension(0.8);
                     config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
                 }
+                else if (string(argv[i+1])=="mvgamma_09")
+                {
+                    ((MV*)ic)->SetQsqr(1);
+                    ((MV*)ic)->SetAnomalousDimension(0.9);
+                    config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
+                }
+                else if (string(argv[i+1])=="mvgamma_095")
+                {
+                    ((MV*)ic)->SetQsqr(1);
+                    ((MV*)ic)->SetAnomalousDimension(0.95);
+                    config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
+                }
+                else if (string(argv[i+1])=="mvgamma_1")
+                {
+                    ((MV*)ic)->SetQsqr(1);
+                    ((MV*)ic)->SetAnomalousDimension(1.0);
+                    config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
+                }
                 else
                 {
                     cerr << "Uknown initial condition " << argv[i+1] << endl;
