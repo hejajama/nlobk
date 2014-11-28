@@ -89,6 +89,16 @@ int BKSolver::Solve(double maxy)
                 cout << "Evolved up to " << y << "/" << nexty << ", h=" << h << endl;
         }
 
+        // Check ampvec
+        for (int i=0; i<vecsize; i++)
+        {
+            if (isinf(ampvec[i]) or isnan(ampvec[i]))
+            {
+                cerr << "Ampvec[i=" << i<< "]=" << ampvec[i] << " " << LINEINFO << endl;
+                exit(1);
+            }
+        }
+
         yind = dipole->AddRapidity(y, ampvec);
 
         if (tmp_output != "")
@@ -139,13 +149,16 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
     interp.SetFreeze(true);
     interp.SetUnderflow(0);
     interp.SetOverflow(1.0);
+    //interp.SetMaxX(maxr_interp);
 
     Interpolator interp_s(rvals,yvals_s);
     interp_s.Initialize();
     interp_s.SetFreeze(true);
     interp_s.SetUnderflow(1.0);
     interp_s.SetOverflow(0.0);
+    //interp_s.SetMaxX(maxr_interp);
 
+    // mitä jos setmax ja freezaa evoluutio isoilla dipoleilla?
 
 	#pragma omp parallel for
     for (unsigned int i=0; i< dipole->RPoints(); i+=1)
@@ -163,6 +176,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
                 cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
         }
         dydt[i]= lo + nlo;
+
         
     }
     if (config::DNDY)
@@ -370,7 +384,27 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
             + 1.0/SQR(Y)*(alphas_y/alphas_x - 1.0)
             + 1.0/SQR(X)*(alphas_x/alphas_y - 1.0)
             );
-        return result;
+
+        if (LO_BK)
+            return result;
+
+        double lo=1.0;
+        if (config::ONLY_NLO)
+            lo=0;
+
+        // At NLO, Balitsky kernel gets the double log and constants
+        if (EQUATION==QCD)
+        {
+            result = lo*result + Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
+                        * Alphas(r) * NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0
+                        - 10.0/9.0 * NF/NC - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) );
+            return result;
+        }
+        if (EQUATION==CONFORMAL_QCD)
+        {
+            cerr << "Balitsky kernel for confqcd is missing! " << LINEINFO << endl;
+            exit(1);
+        }
     }
     else if (RC_LO == SMALLEST_LO)
     {
@@ -402,8 +436,9 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         else if (EQUATION == QCD)
         {
             result *=
-                lo + as * NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 
-                    - 10.0/9.0*NF/NC
+                lo + as * NC / (4.0*M_PI) * (
+                        67.0/9.0 - SQR(M_PI)/3.0 
+                        - 10.0/9.0*NF/NC
                     - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
                     ) ; 
                 /*- as * NC / (4.0*M_PI) * 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r );*/
@@ -413,25 +448,36 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     }
     
     else if (RC_LO == PARENT_LO)
-    {
+    {       
+        result = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y);
+        if (LO_BK)
+        {
+            result = result * (1.0 + Alphas(r) * NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC  - 11.0/3.0*( SQR(X)-SQR(Y) )/SQR(r) * 2.0*std::log(X/Y) ) );
+            if (isnan(result) or isinf(result))
+                return 0;
+            return result;
+        }
+            
         double lo = 1.0;
         if (config::ONLY_NLO)
             lo = 0;
         
-        result = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y);
-        if (LO_BK)
-        {
-            return result * (lo + Alphas(r) * NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC - 11.0/3.0*( SQR(X)-SQR(Y) )/SQR(r) * 2.0*std::log(X/Y) ) );
-        }
-            
-
-        
 
         if (EQUATION == QCD)
-            result *= 1.0 + Alphas(r) * NC / (4.0*M_PI)
-                * ( 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC - 11.0/3.0*( SQR(X)-SQR(Y) )/SQR(r) * 2.0*std::log(X/Y)  
-                    - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
-                    ) ;
+        {
+            result = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
+                * ( lo +
+                    Alphas(r) * NC / (4.0*M_PI)
+                        * (
+                            lo*
+                            (   // This is "part of rc", not included when studying "only nlo"
+                                67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC - 11.0/3.0*( SQR(X)-SQR(Y) )/SQR(r) * 2.0*std::log(X/Y)
+                            )
+                        - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
+                        )
+                    );
+            return result;
+        }
         else if (EQUATION == CONFORMAL_QCD)
              result *= 1.0 + Alphas(r)*NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC - 11.0/3.0*( SQR(X)-SQR(Y) )/SQR(r) * 2.0*std::log(X/Y) ) ;
         else

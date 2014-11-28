@@ -94,6 +94,11 @@ int main(int argc, char* argv[])
                     ((MV*)ic)->SetQsqr(1);
                     config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
                 }
+                else if (string(argv[i+1])=="mv10")
+                {
+                    ((MV*)ic)->SetQsqr(10);
+                    config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
+                }
                 else if (string(argv[i+1])=="mve")
                 {
                     ((MV*)ic)->SetQsqr(0.06);
@@ -105,6 +110,12 @@ int main(int argc, char* argv[])
                     ((MV*)ic)->SetQsqr(0.165);
                     ((MV*)ic)->SetAnomalousDimension(1.135);
                     config::ALPHAS_SCALING = 6.35;
+                }
+                else if (string(argv[i+1])=="mvgamma_08")
+                {
+                    ((MV*)ic)->SetQsqr(1);
+                    ((MV*)ic)->SetAnomalousDimension(0.8);
+                    config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
                 }
                 else
                 {
@@ -149,7 +160,10 @@ int main(int argc, char* argv[])
                 config::RC_NLO = config::FIXED_NLO;
             }
             else if (string(argv[i+1])=="balitsky")
+            {
                 config::RC_LO = config::BALITSKY_LO;
+                config::RC_NLO = config::PARENT_NLO;
+            }
             else
             {
                 cerr << "Unknown RC " << argv[i+1] << " at " << LINEINFO << endl;
@@ -199,12 +213,6 @@ int main(int argc, char* argv[])
     {
         cerr << "Initial condition was not set!" << endl;
         return -1;
-    }
-
-    if (config::RC_LO == config::BALITSKY_LO and !config::LO_BK)
-    {
-        cerr << "Balitsky kernel set, but we should solve nlo bk?? " << LINEINFO << endl;
-        exit(1);
     }
 
     if (config::ONLY_NLO == true and config::LO_BK == true)
