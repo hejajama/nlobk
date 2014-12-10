@@ -50,7 +50,8 @@ namespace config
     enum RunningCouplingLO
     {
         FIXED_LO,
-        PARENT_LO,
+        PARENT_LO,      // Parent dipole where all beta terms are included
+        PARENT_BETA_LO, // Parent dipole, only renormalization scale term is included in as, the second beta term is explicit in the expression
         SMALLEST_LO,
         BALITSKY_LO
     };

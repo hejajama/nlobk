@@ -351,6 +351,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     // Fixed as
     if (RC_LO == FIXED_LO)
     {
+        cerr << "Fixed coupling? " <<  LINEINFO << endl;
         result = FIXED_AS * NC/(2.0*M_PI*M_PI) *  r*r / (X*X * Y*Y);
 
         if (LO_BK)
@@ -396,14 +397,17 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         if (EQUATION==QCD)
         {
             result = lo*result + Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
-                        * Alphas(r) * NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0
-                        - 10.0/9.0 * NF/NC - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) );
+                        * Alphas(r) * NC / (4.0*M_PI) 
+                            * (
+                            67.0/9.0 - SQR(M_PI)/3.0
+                            - 10.0/9.0 * NF/NC - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r )
+                            );
             return result;
         }
         if (EQUATION==CONFORMAL_QCD)
         {
             result = lo*result + Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
-                        * Alphas(r) * NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0 );
+                        * Alphas(r) * NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0 * NF/NC );
             return result;
         }
     }
@@ -453,9 +457,6 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         result = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y);
         if (LO_BK)
         {
-            result = result * (1.0 + Alphas(r) * NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC  - 11.0/3.0*( SQR(X)-SQR(Y) )/SQR(r) * 2.0*std::log(X/Y) ) );
-            if (isnan(result) or isinf(result))
-                return 0;
             return result;
         }
             
@@ -469,20 +470,57 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
             result = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
                 * ( lo +
                     Alphas(r) * NC / (4.0*M_PI)
-                        * (
-                            lo*
-                            (   // This is "part of rc", not included when studying "only nlo"
-                                67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC - 11.0/3.0*( SQR(X)-SQR(Y) )/SQR(r) * 2.0*std::log(X/Y)
-                            )
+                    * (
+                        67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC
                         - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
                         )
                     );
             return result;
         }
         else if (EQUATION == CONFORMAL_QCD)
-             result *= 1.0 + Alphas(r)*NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC - 11.0/3.0*( SQR(X)-SQR(Y) )/SQR(r) * 2.0*std::log(X/Y) ) ;
+             result *= lo + Alphas(r)*NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC ) ;
         else
             cerr << "Uknwon equation! " << LINEINFO << endl;
+
+        return result;
+
+    }
+    else if (RC_LO == PARENT_BETA_LO)
+    {       
+        result = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
+            * (1.0 + Alphas(r)*NC/(4.0*M_PI) * (-11.0/3.0 * ( SQR(X) - SQR(Y) ) / SQR(r) * 2.0*std::log(X/Y) ) );
+
+        if (LO_BK)
+            return result;
+
+            
+        double lo = 1.0;
+        if (config::ONLY_NLO)
+            lo = 0;
+        
+
+        if (EQUATION == QCD)
+        {
+            result = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
+                * ( lo +
+                    Alphas(r) * NC / (4.0*M_PI)
+                    * (
+                        lo*(-11.0/3.0 * ( SQR(X) - SQR(Y) ) / SQR(r) * 2.0*std::log(X/Y) )
+                        + 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC
+                        - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
+                        )
+                    );
+            return result;
+        }
+        else if (EQUATION == CONFORMAL_QCD)
+             result = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
+             *  ( lo
+                    + Alphas(r)*NC / (4.0*M_PI) * ( lo*(-11.0/3.0 * ( SQR(X) - SQR(Y) ) / SQR(r) * 2.0*std::log(X/Y) ) + 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC )
+                );
+        else
+            cerr << "Uknwon equation! " << LINEINFO << endl;
+
+        return result;
 
     }
     else

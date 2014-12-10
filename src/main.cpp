@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
         cout << "-maxy yval" << endl;
         cout <<"-output filename_to_save_data" << endl;
         cout << "-eq qcd,confqcd,n4: set equation to solve" << endl;
-        cout << "-rc smallest,parent,fixed: set running coupling" << endl;
+        cout << "-rc smallest,parent,parent_beta,fixed: set running coupling" << endl;
         cout << "-lo: solve LO BK" << endl;
         cout << "-only_nlo: keep only nlo terms" << endl;
         cout << "-nf nf: set number of quark flavors" << endl;
@@ -165,6 +165,11 @@ int main(int argc, char* argv[])
             if (string(argv[i+1])=="parent")
             {
                 config::RC_LO = config::PARENT_LO;
+                config::RC_NLO = config::PARENT_NLO;
+            }
+            if (string(argv[i+1])=="parent_beta")
+            {
+                config::RC_LO = config::PARENT_BETA_LO;
                 config::RC_NLO = config::PARENT_NLO;
             }
             else if (string(argv[i+1])=="smallest")
@@ -304,6 +309,8 @@ std::string NLOBK_CONFIG_STRING()
             ss << " Balitsky";
         else if (RC_LO == PARENT_LO)
             ss << " Parent dipole";
+        else if (RC_LO == PARENT_BETA_LO)
+            ss << " Parent dipole, explicit beta";
         else
             ss << " NO STRING IMPLEMENTED!";
 
