@@ -167,7 +167,7 @@ int main(int argc, char* argv[])
                 config::RC_LO = config::PARENT_LO;
                 config::RC_NLO = config::PARENT_NLO;
             }
-            if (string(argv[i+1])=="parent_beta")
+            else if (string(argv[i+1])=="parent_beta")
             {
                 config::RC_LO = config::PARENT_BETA_LO;
                 config::RC_NLO = config::PARENT_NLO;
