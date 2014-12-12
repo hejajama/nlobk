@@ -360,6 +360,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         if (EQUATION == CONFORMAL_QCD)   ///TODO: should we include ~beta terms here or not?
         {
             result *= (1.0 + FIXED_AS*NC/(4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0) );
+            return result;
         }
         else if (EQUATION == QCD)
         {
@@ -372,6 +373,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
                 - 2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) )   
                 )
             );
+            return result;
         } 
     }
     else if (RC_LO == BALITSKY_LO)

@@ -117,6 +117,12 @@ int main(int argc, char* argv[])
                     ((MV*)ic)->SetAnomalousDimension(0.8);
                     config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
                 }
+                else if (string(argv[i+1])=="mvgamma_08_qsqr_100")
+                {   
+                    ((MV*)ic)->SetQsqr(100);
+                    ((MV*)ic)->SetAnomalousDimension(0.8);
+                    config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
+                } 
                 else if (string(argv[i+1])=="mvgamma_09")
                 {
                     ((MV*)ic)->SetQsqr(1);
