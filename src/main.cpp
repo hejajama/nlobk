@@ -48,6 +48,7 @@ int main(int argc, char* argv[])
     if (string(argv[1])=="-help")
     {
         cout <<"-ic FILE filename: set initial condition (default: MV)" << endl;
+        cout << "-ic PARAM qsqr anomalous_dimension" << endl; 
         cout << "-maxy yval" << endl;
         cout <<"-output filename_to_save_data" << endl;
         cout << "-eq qcd,confqcd,n4: set equation to solve" << endl;
@@ -75,6 +76,13 @@ int main(int argc, char* argv[])
             {
                 ic = new IC_datafile();
                 ((IC_datafile*)ic)->LoadFile(argv[i+2]);
+            }
+            else if (string(argv[i+1])=="PARAM")
+            {
+                ic = new MV();
+                ((MV*)ic)->SetQsqr(StrToReal(argv[i+2]));
+                ((MV*)ic)->SetAnomalousDimension(StrToReal(argv[i+3]));
+                config::ALPHAS_SCALING = 1; // This is set by -alphas_scaling, hopefully
             }
             else
             {
@@ -122,7 +130,7 @@ int main(int argc, char* argv[])
                     ((MV*)ic)->SetQsqr(100);
                     ((MV*)ic)->SetAnomalousDimension(0.8);
                     config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
-                } 
+                }
                 else if (string(argv[i+1])=="mvgamma_09")
                 {
                     ((MV*)ic)->SetQsqr(1);
