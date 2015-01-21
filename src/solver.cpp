@@ -876,7 +876,7 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
         double dipole1_swap = dipole_interp_s->Evaluate(X2) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y)
             - dipole_interp_s->Evaluate(X2) * dipole_interp_s->Evaluate(Y2);
 
-            result = (k1*dipole_1 + k1_swap * dipole1_swap)/2.0;
+            result = (k1*dipole1 + k1_swap * dipole1_swap)/2.0;
 
         //double k2 = solver->Kernel_nlo_conformal_2(r,X,Y,X2,Y2,z_m_z2);
         //double dipole2 = dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y2)
