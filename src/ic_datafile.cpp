@@ -51,6 +51,13 @@ int IC_datafile::LoadFile(std::string file)
 		nvals.push_back(StrToReal(n));
     }
     f.close();
+
+    // If there wasn't enough data points
+    if (nvals.size() < 10)
+    {
+        cerr << "There was only " << nvals.size() << " datapoints in file " << file <<", exiting..." << endl;
+        exit(1);
+    }
     
     // Interpolator
     interpolator = new Interpolator(rvals, nvals);

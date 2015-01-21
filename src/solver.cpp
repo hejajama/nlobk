@@ -812,6 +812,10 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
         double kswap = solver->Kernel_nlo(r,X2,Y2,X,Y,z_m_z2);
 
         
+
+
+        /*
+        // Dipole part using N
         double dipole = dipole_interp->Evaluate(z_m_z2)
                             - dipole_interp->Evaluate(X)*dipole_interp->Evaluate(z_m_z2)
                             - dipole_interp->Evaluate(z_m_z2)*dipole_interp->Evaluate(Y2)
@@ -827,6 +831,13 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
                             + dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(Y2)
                             + dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(z_m_z2)*dipole_interp->Evaluate(Y)
                             + dipole_interp->Evaluate(Y) - dipole_interp->Evaluate(Y2);
+        */
+
+        // Dipole part using S, minus sign as the evolution is written for n, not s
+        double dipole = -( dipole_interp_s->Evaluate(X)*dipole_interp_s->Evaluate(z_m_z2)*dipole_interp_s->Evaluate(Y2)
+                                - dipole_interp_s->Evaluate(X)*dipole_interp_s->Evaluate(Y)  );
+        double dipole_swap = -( dipole_interp_s->Evaluate(X2)*dipole_interp_s->Evaluate(z_m_z2)*dipole_interp_s->Evaluate(Y)
+                                - dipole_interp_s->Evaluate(X2)*dipole_interp_s->Evaluate(Y2)  );
         
         //result = k*dipole;
         result = (k*dipole + kswap*dipole_swap)/2.0;
@@ -836,13 +847,16 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
             double kernel_f = solver->Kernel_nlo_fermion(r,X,Y,X2,Y2,z_m_z2);
             double kernel_f_swap = solver->Kernel_nlo_fermion(r,X2,Y2,X,Y,z_m_z2);
 
-            //double dipole_f = dipole_interp_s->Evaluate(Y) * ( dipole_interp_s->Evaluate(X2) - dipole_interp_s->Evaluate(X) );
+            double dipole_f = dipole_interp_s->Evaluate(Y) * ( dipole_interp_s->Evaluate(X2) - dipole_interp_s->Evaluate(X) );
+            double dipole_f_swap = dipole_interp_s->Evaluate(Y2) * ( dipole_interp_s->Evaluate(X) - dipole_interp_s->Evaluate(X2) );
+
+            /*
+            // Dipole part using N
             double dipole_f = dipole_interp->Evaluate(X) - dipole_interp->Evaluate(X2)
                 - dipole_interp->Evaluate(X)*dipole_interp->Evaluate(Y) + dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(Y);
-            //double dipole_f_swap = dipole_interp_s->Evaluate(Y2) * ( dipole_interp_s->Evaluate(X) - dipole_interp_s->Evaluate(X2) );
             double dipole_f_swap = dipole_interp->Evaluate(X2) - dipole_interp->Evaluate(X)
                 - dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(Y2) + dipole_interp->Evaluate(X)*dipole_interp->Evaluate(Y2);
-
+            */
             result += -(kernel_f*dipole_f + kernel_f_swap * dipole_f_swap)/2.0;     // Minus sign as the evolution is written for S and we solve N
 
         }
@@ -852,22 +866,26 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
     else if (EQUATION==CONFORMAL_QCD)
     {
         double k1 = solver->Kernel_nlo_conformal_1(r,X,Y,X2,Y2,z_m_z2);        
-        double k2 = solver->Kernel_nlo_conformal_2(r,X,Y,X2,Y2,z_m_z2);
-
+    
         double dipole1 = dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y2)
             - dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(Y);
-        double dipole2 = dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y2)
-            - dipole_interp_s->Evaluate(X2) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y);
-
+        
+        
         double k1_swap = solver->Kernel_nlo_conformal_1(r,X2,Y2,X,Y,z_m_z2);        
-        double k2_swap = solver->Kernel_nlo_conformal_2(r,X2,Y2,X,Y,z_m_z2);
-
+    
         double dipole1_swap = dipole_interp_s->Evaluate(X2) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y)
             - dipole_interp_s->Evaluate(X2) * dipole_interp_s->Evaluate(Y2);
-        double dipole2_swap = dipole_interp_s->Evaluate(X2) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y)
-            - dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y2);
 
-        result = (k1*dipole1 + k2*dipole2 + k1_swap*dipole1_swap + k2_swap*dipole2_swap)/2.0;
+            result = (k1*dipole_1 + k1_swap * dipole1_swap)/2.0;
+
+        //double k2 = solver->Kernel_nlo_conformal_2(r,X,Y,X2,Y2,z_m_z2);
+        //double dipole2 = dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y2)
+        //    - dipole_interp_s->Evaluate(X2) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y);
+        //double k2_swap = solver->Kernel_nlo_conformal_2(r,X2,Y2,X,Y,z_m_z2);
+        //double dipole2_swap = dipole_interp_s->Evaluate(X2) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y)
+        //    - dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y2);
+
+        //result = (k1*dipole1 + k2*dipole2 + k1_swap*dipole1_swap + k2_swap*dipole2_swap)/2.0;
         
 
         /// Fermion part
@@ -998,7 +1016,7 @@ double BKSolver::Kernel_nlo(double r, double X, double Y, double X2, double Y2, 
         ( SQR(X*Y2) + SQR(X2*Y) - 4.0*SQR(r*z_m_z2) ) / ( std::pow(z_m_z2,4) * (SQR(X*Y2) - SQR(X2*Y)) )
         + std::pow(r,4) / ( SQR(X*Y2)*( SQR(X*Y2) - SQR(X2*Y) ) )
         + SQR(r) / ( SQR(X*Y2*z_m_z2) )
-        ) * std::log( SQR(X*Y2/(X2*Y)) );
+        ) * 2.0*std::log( X*Y2/(X2*Y) );
 
     if (isnan(kernel) or isinf(kernel))
     {
