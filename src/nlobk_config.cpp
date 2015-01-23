@@ -37,6 +37,7 @@ namespace config
      RunningCouplingNLO RC_NLO = SMALLEST_NLO;
 
      bool DOUBLELOG_LO_KERNEL = true; // include double log term from the LO kernel
+     bool ONLY_DOUBLELOG = false;
 
      INTEGRATION_METHOD INTMETHOD_NLO = MISER;
 
@@ -49,4 +50,7 @@ namespace config
      bool DNDY=false;
 
      bool ONLY_NLO = false;
+
+     bool ONLY_LNR = false;
+     bool NO_LNR = false;
 }

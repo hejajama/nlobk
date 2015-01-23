@@ -68,6 +68,7 @@ namespace config
     extern RunningCouplingNLO RC_NLO;
 
     extern bool DOUBLELOG_LO_KERNEL; // include double log term from the LO kernel
+    extern bool ONLY_DOUBLELOG;     // only include double log term
 
     enum INTEGRATION_METHOD
     {
@@ -86,6 +87,9 @@ namespace config
     extern double ALPHAS_SCALING;   // C^2
 
     extern bool DNDY;   // Print only dn/dy and exit
+
+    extern bool ONLY_LNR;   // Keep only ln r^2 terms from nlo conformal dipole
+    extern bool NO_LNR;     // Do not include ln r^2
 
 
     

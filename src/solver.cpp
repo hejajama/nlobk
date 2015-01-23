@@ -391,6 +391,17 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         if (LO_BK)
             return result;
 
+        if (config::ONLY_DOUBLELOG)
+        {  
+            return Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
+                        * Alphas(r) * NC / (4.0*M_PI)
+                        * (- 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) ) ;
+        }
+
+        double dlog = 1.0;
+        if (config::DOUBLELOG_LO_KERNEL == false)
+            dlog=0.0;
+
         double lo=1.0;
         if (config::ONLY_NLO)
             lo=0;
@@ -401,8 +412,8 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
             result = lo*result + Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
                         * Alphas(r) * NC / (4.0*M_PI) 
                             * (
-                            67.0/9.0 - SQR(M_PI)/3.0
-                            - 10.0/9.0 * NF/NC - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r )
+                            67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0 * NF/NC
+                            - dlog*2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r )
                             );
             return result;
         }
@@ -494,11 +505,16 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 
         if (LO_BK)
             return result;
+        
 
             
         double lo = 1.0;
         if (config::ONLY_NLO)
             lo = 0;
+
+        double dlog = 1.0;
+        if (config::DOUBLELOG_LO_KERNEL == false)
+            dlog=0.0;
         
 
         if (EQUATION == QCD)
@@ -509,7 +525,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
                     * (
                         lo*(-11.0/3.0 * ( SQR(X) - SQR(Y) ) / SQR(r) * 2.0*std::log(X/Y) )
                         + 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC
-                        - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
+                        - dlog*2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
                         )
                     );
             return result;
@@ -1065,10 +1081,15 @@ double BKSolver::Kernel_nlo_conformal_1(double r, double X, double Y, double X2,
     
 
     // Own result
+
+    if (config::ONLY_LNR)
+        return 2.0 * 2.0*std::log(r*z_m_z2/(X2*Y)) * SQR(r/(X*Y2*z_m_z2));  // only lnr
+
+    double lnr_multiplier = 1.0;
+    if (config::NO_LNR)
+        lnr_multiplier = 0;
     
-    //return 2.0 * 2.0*std::log(r*z_m_z2/(X2*Y)) * SQR(r/(X*Y2*z_m_z2));  // only lnr
-    
-    result = 2.0 * 2.0*std::log(r*z_m_z2/(X2*Y)) + ( SQR(X*Y2) - SQR(X2*Y) + SQR(r*z_m_z2) ) / (SQR(X*Y2) - SQR(X2*Y) ) * 2.0*std::log(X*Y2/(X2*Y) );
+    result = lnr_multiplier*2.0 * 2.0*std::log(r*z_m_z2/(X2*Y)) + ( SQR(X*Y2) - SQR(X2*Y) + SQR(r*z_m_z2) ) / (SQR(X*Y2) - SQR(X2*Y) ) * 2.0*std::log(X*Y2/(X2*Y) );
     result *= SQR(r/(X*Y2*z_m_z2));
 
     result += -2.0/std::pow(z_m_z2, 4.0) + ( SQR(X*Y2) + SQR(X2*Y) - 4.0*SQR(r*z_m_z2) )/( std::pow(z_m_z2,4.0)*(SQR(X*Y2) - SQR(X2*Y) ) ) * 2.0*std::log(X*Y2/(X2*Y));

@@ -42,8 +42,16 @@ int main(int argc, char* argv[])
     char *hostname = new char[500];
     gethostname(hostname, 500);
     
-    cout <<"#"<<endl<<"# NLOBK solver " << version  << " running on " << hostname << ", start at " << today << "#" << endl;
+    cout <<"#"<<endl<<"# NLOBK solver " << version  << " running on " << hostname << " build on " << __DATE__ << " " << __TIME__ << endl;
+    cout <<"# Start at " << today << "#" << endl;
     delete[] hostname;
+
+    cout << "# Command: ";
+    for (int i=0; i<argc; i++)
+        cout << argv[i] << " ";
+    cout << endl; cout << "#" << endl;
+
+    
 
     if (string(argv[1])=="-help")
     {
@@ -55,6 +63,10 @@ int main(int argc, char* argv[])
         cout << "-rc smallest,parent,parent_beta,fixed: set running coupling" << endl;
         cout << "-lo: solve LO BK" << endl;
         cout << "-only_nlo: keep only nlo terms" << endl;
+        cout << "-nodlog: do not include double log term" << endl;
+        cout << "-onlydlog: only include double log term" << endl;
+        cout << "-onlylnr: only include lnr^2 NLO terms" << endl;
+        cout << "-nolnr: do not include ln r^2 terms" << endl;
         cout << "-nf nf: set number of quark flavors" << endl;
         cout << "-nolimit: do not force N>=0" << endl;
         cout << "-ic [mv,mve,mvgamma] set initial condition" << endl;
@@ -211,6 +223,13 @@ int main(int argc, char* argv[])
             config::LO_BK = true;
         else if (string(argv[i])=="-only_nlo")
             config::ONLY_NLO = true;
+        else if (string(argv[i])=="-nodlog")
+        {
+            config::DOUBLELOG_LO_KERNEL = false;
+            config::ONLY_NLO = true;
+        }
+        else if (string(argv[i])=="-onlydlog")
+            config::ONLY_DOUBLELOG = true;
         else if (string(argv[i])=="-nlo")
             config::LO_BK = false;
         else if (string(argv[i])=="-nf")
@@ -231,6 +250,13 @@ int main(int argc, char* argv[])
         else if (string(argv[i])=="-dndy")
             config::DNDY = true;
 
+        else if (string(argv[i])=="-onlylnr")
+            config::ONLY_LNR = true;
+        else if (string(argv[i])=="-nolnr")
+        {
+            config::NO_LNR = true;
+            config::ONLY_NLO = true;
+        }
         else if (string(argv[i])=="-alphas_scaling")
             config::ALPHAS_SCALING = StrToReal(argv[i+1]);
     
