@@ -229,7 +229,10 @@ int main(int argc, char* argv[])
             config::ONLY_NLO = true;
         }
         else if (string(argv[i])=="-onlydlog")
+        {
             config::ONLY_DOUBLELOG = true;
+            config::ONLY_NLO = true;
+        }
         else if (string(argv[i])=="-nlo")
             config::LO_BK = false;
         else if (string(argv[i])=="-nf")
@@ -251,7 +254,10 @@ int main(int argc, char* argv[])
             config::DNDY = true;
 
         else if (string(argv[i])=="-onlylnr")
+        {
             config::ONLY_LNR = true;
+            config::ONLY_NLO = true;
+        }
         else if (string(argv[i])=="-nolnr")
         {
             config::NO_LNR = true;

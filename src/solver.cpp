@@ -445,6 +445,10 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         double lo = 1.0;
         if (config::ONLY_NLO)
             lo = 0;
+
+        double dlog = 1.0;
+        if (config::DOUBLELOG_LO_KERNEL == false)
+            dlog=0;
         
         if (EQUATION == CONFORMAL_QCD)
         {
@@ -457,7 +461,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
                 lo + as * NC / (4.0*M_PI) * (
                         67.0/9.0 - SQR(M_PI)/3.0 
                         - 10.0/9.0*NF/NC
-                    - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
+                    - dlog*2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
                     ) ; 
                 //- as * NC / (4.0*M_PI) * 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r );
                     
@@ -498,7 +502,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         return result;
 
     }
-    else if (RC_LO == PARENT_BETA_LO)
+    else if (RC_LO == PARENT_BETA_LO)   ///TODO: tarkista beta:n arvo
     {       
         result = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
             * (1.0 + Alphas(r)*NC/(4.0*M_PI) * (-11.0/3.0 * ( SQR(X) - SQR(Y) ) / SQR(r) * 2.0*std::log(X/Y) ) );
@@ -905,7 +909,7 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
         
 
         /// Fermion part
-        if (NF > 0)
+        if (NF > 0 and !ONLY_LNR)       // Do not include fermions if we want only ln r contribution!
         {
             double kernel_f = solver->Kernel_nlo_conformal_fermion(r,X,Y,X2,Y2,z_m_z2);
             double dipole_f = dipole_interp_s->Evaluate(Y) * ( dipole_interp_s->Evaluate(X2)
