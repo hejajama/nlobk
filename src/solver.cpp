@@ -338,11 +338,14 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     // N=4 is easy as the coupling does not run
     if (EQUATION == CONFORMAL_N4)
     {
+        double lo=1.0;
+        if (config::ONLY_NLO)
+            lo=0;
         result = FIXED_AS / (2.0*M_PI*M_PI) * r*r / (X*X * Y*Y);
         if (LO_BK)
             return result;
         else
-            result *= (1.0 - FIXED_AS * NC / (4.0*M_PI) * M_PI*M_PI/3.0);
+            result *= (lo - FIXED_AS * NC / (4.0*M_PI) * M_PI*M_PI/3.0);
         return result;
     }
 
@@ -1170,7 +1173,14 @@ double BKSolver::Kernel_nlo_n4_sym(double r, double X, double Y, double X2, doub
 {
     double result=0;
 
-    result = 2.0 * 2.0*std::log( r*z_m_z2/(X2*Y) )
+    if (config::ONLY_LNR)
+        return 2.0 * 2.0*std::log( r*z_m_z2/(X2*Y) ) * SQR(r/(X*Y2*z_m_z2));
+
+    double lnr = 1.0;
+    if (config::NO_LNR)
+        lnr=0;
+
+    result = 2.0 * lnr*2.0*std::log( r*z_m_z2/(X2*Y) )
         + (1.0 + SQR(r*z_m_z2) / ( SQR(X*Y2) - SQR(X2*Y) )) * 2.0*std::log(X*Y2/(X2*Y) );
     result *= SQR(r/(X*Y2*z_m_z2));
 
