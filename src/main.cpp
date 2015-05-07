@@ -72,6 +72,7 @@ int main(int argc, char* argv[])
         cout << "-ic [mv,mve,mvgamma] set initial condition" << endl;
         cout << "-dndy: print dn/dy at initial condition and exit" << endl;
         cout << "-alphas_scaling C^2: set C^2 [setting mv/mve/mvgamma ic sets this also]" << endl;
+        cout << "-resum_dlog: resum double log when solving non-conformal dipole";
 
         return 0;
     }
@@ -243,9 +244,7 @@ int main(int argc, char* argv[])
                 cerr << "Invalid Nf=" << config::NF << " " << LINEINFO << endl;
                 return -1;
             }
-        }
-
-            
+        }            
         
         else if (string(argv[i])=="-nolimit")
             config::FORCE_POSITIVE_N = false;
@@ -265,6 +264,9 @@ int main(int argc, char* argv[])
         }
         else if (string(argv[i])=="-alphas_scaling")
             config::ALPHAS_SCALING = StrToReal(argv[i+1]);
+
+        else if (string(argv[i])=="-resum_dlog")
+            config::RESUM_DLOG = true;
     
         else if (string(argv[i]).substr(0,1)=="-") 
         {
@@ -287,6 +289,12 @@ int main(int argc, char* argv[])
     if (config::ONLY_NLO == true and config::LO_BK == true)
     {
         cerr << "Asked to solve LO bk with only NLO terms!" << endl;
+        exit(1);
+    }
+
+    if (config::EQUATION != config::QCD and config::RESUM_DLOG == true)
+    {
+        cerr << "Asked to resum dlog and solve something else than qcd!" << endl;
         exit(1);
     }
     
@@ -397,6 +405,11 @@ std::string NLOBK_CONFIG_STRING()
         else
             ss << "NLO";
         if (config::ONLY_NLO) ss << ", keeping only NLO terms";
+        if (config::RESUM_DLOG)
+        {
+            ss << endl;
+            ss << "# Resumming double log";
+        }
     
     return ss.str();
 }

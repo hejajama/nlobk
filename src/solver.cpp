@@ -402,17 +402,26 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         }
 
         double dlog = 1.0;
-        if (config::DOUBLELOG_LO_KERNEL == false)
+        if (config::DOUBLELOG_LO_KERNEL == false or config::RESUM_DLOG)
             dlog=0.0;
 
         double lo=1.0;
         if (config::ONLY_NLO)
             lo=0;
 
+        double resum=1.0;
+        if (config::RESUM_DLOG)
+        {
+            double x = std::sqrt( 4.0*std::log(X/r) * std::log(Y/r) );
+            // argument to the Bessel function is 2sqrt(bar as * x^2)
+            double as_x = std::sqrt( Alphas(r)*NC/M_PI * SQR(x) );
+            resum = gsl_sf_bessel_J0(2.0*as_x) / as_x; 
+        }
+
         // At NLO, Balitsky kernel gets the double log and constants
         if (EQUATION==QCD)
         {
-            result = lo*result + Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
+            result = lo*resum*result + Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
                         * Alphas(r) * NC / (4.0*M_PI) 
                             * (
                             67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0 * NF/NC

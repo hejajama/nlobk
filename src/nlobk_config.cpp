@@ -53,4 +53,6 @@ namespace config
 
      bool ONLY_LNR = false;
      bool NO_LNR = false;
+
+     bool RESUM_DLOG = false;
 }

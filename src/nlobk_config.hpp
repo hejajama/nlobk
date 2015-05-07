@@ -91,6 +91,7 @@ namespace config
     extern bool ONLY_LNR;   // Keep only ln r^2 terms from nlo conformal dipole
     extern bool NO_LNR;     // Do not include ln r^2
 
+    extern bool RESUM_DLOG; // Resum double log
 
     
 }
