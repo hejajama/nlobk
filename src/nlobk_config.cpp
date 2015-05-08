@@ -19,7 +19,7 @@ namespace config
      double INTACCURACY=0.05;
      double MCINTACCURACY = 0.2;
      double MAXR = 50;
-     double MINR=1e-6;
+     double MINR=1e-5;
      unsigned int RPOINTS = 150;
 
      size_t MCINTPOINTS = 2e6;
@@ -27,7 +27,7 @@ namespace config
 
      Equation EQUATION = QCD;  
 
-     double DE_SOLVER_STEP = 0.1;
+     double DE_SOLVER_STEP = 0.2;
 
 
      double FIXED_AS = 0.1;

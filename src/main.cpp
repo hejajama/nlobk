@@ -72,7 +72,7 @@ int main(int argc, char* argv[])
         cout << "-ic [mv,mve,mvgamma] set initial condition" << endl;
         cout << "-dndy: print dn/dy at initial condition and exit" << endl;
         cout << "-alphas_scaling C^2: set C^2 [setting mv/mve/mvgamma ic sets this also]" << endl;
-        cout << "-resum_dlog: resum double log when solving non-conformal dipole";
+        cout << "-resum_dlog: resum double log when solving non-conformal dipole" << endl;
 
         return 0;
     }
