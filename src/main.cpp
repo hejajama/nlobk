@@ -72,6 +72,7 @@ int main(int argc, char* argv[])
         cout << "-ic [mv,mve,mvgamma] set initial condition" << endl;
         cout << "-dndy: print dn/dy at initial condition and exit" << endl;
         cout << "-alphas_scaling C^2: set C^2 [setting mv/mve/mvgamma ic sets this also]" << endl;
+        cout << "-ln_alphas_scaling ln C^2: set ln C^2" << endl;
         cout << "-resum_dlog: resum double log when solving non-conformal dipole" << endl;
         cout << "-resum_slog: resum single log" << endl;
         cout << "-no_k2: do not include K_2 and K_f" << endl;
@@ -268,6 +269,9 @@ int main(int argc, char* argv[])
         else if (string(argv[i])=="-alphas_scaling")
             config::ALPHAS_SCALING = StrToReal(argv[i+1]);
 
+        else if (string(argv[i])=="-ln_alphas_scaling")
+            config::ALPHAS_SCALING = std::exp(StrToReal(argv[i+1]));
+        
         else if (string(argv[i])=="-resum_dlog")
             config::RESUM_DLOG = true;
 
