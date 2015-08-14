@@ -92,6 +92,11 @@ namespace config
     extern bool NO_LNR;     // Do not include ln r^2
 
     extern bool RESUM_DLOG; // Resum double log
+    extern bool RESUM_SINGLE_LOG;
+
+    extern bool NO_K2;      // Do not include K_2
+
+    extern bool ONLY_RESUM_DLOG; // Calculate contribution from resummation
 
     
 }

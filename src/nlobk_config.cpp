@@ -16,25 +16,25 @@ namespace config
 
      int RINTPOINTS=25;
      int THETAINTPOINTS = 25;
-     double INTACCURACY=0.05;
+     double INTACCURACY=0.1;
      double MCINTACCURACY = 0.2;
      double MAXR = 50;
-     double MINR=1e-5;
-     unsigned int RPOINTS = 150;
+     double MINR=1e-6;
+     unsigned int RPOINTS = 100;
 
-     size_t MCINTPOINTS = 2e6;
+     size_t MCINTPOINTS = 5e5;
 
 
      Equation EQUATION = QCD;  
 
-     double DE_SOLVER_STEP = 0.2;
+     double DE_SOLVER_STEP = 0.4;
 
 
-     double FIXED_AS = 0.1;
+     double FIXED_AS = 0.01;
 
 
-     RunningCouplingLO RC_LO = SMALLEST_LO;
-     RunningCouplingNLO RC_NLO = SMALLEST_NLO;
+     RunningCouplingLO RC_LO = BALITSKY_LO;
+     RunningCouplingNLO RC_NLO = PARENT_NLO;
 
      bool DOUBLELOG_LO_KERNEL = true; // include double log term from the LO kernel
      bool ONLY_DOUBLELOG = false;
@@ -55,4 +55,9 @@ namespace config
      bool NO_LNR = false;
 
      bool RESUM_DLOG = false;
+     bool RESUM_SINGLE_LOG = false;
+
+     bool NO_K2 = false;
+
+     bool ONLY_RESUM_DLOG = false;
 }

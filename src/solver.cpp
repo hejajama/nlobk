@@ -69,7 +69,7 @@ int BKSolver::Solve(double maxy)
         
     const gsl_odeiv_step_type * T = gsl_odeiv_step_rk2; // rkf45 is more accurate 
     gsl_odeiv_step * s    = gsl_odeiv_step_alloc (T, vecsize);
-    gsl_odeiv_control * c = gsl_odeiv_control_y_new (0.0001, INTACCURACY);    //abserr relerr
+    gsl_odeiv_control * c = gsl_odeiv_control_y_new (0.001, INTACCURACY);    //abserr relerr   // paper: 0.0001 
     gsl_odeiv_evolve * e  = gsl_odeiv_evolve_alloc (vecsize);
     double h = step;  // Initial ODE solver step size
     
@@ -85,7 +85,7 @@ int BKSolver::Solve(double maxy)
                 << ": " << gsl_strerror(status) << " (" << status << ")"
                 << " y=" << y << ", h=" << h << endl;
             }
-            if (std::abs(y - (int)(y+0.5))<0.01)
+            //if (std::abs(y - (int)(y+0.5))<0.01)
                 cout << "Evolved up to " << y << "/" << nexty << ", h=" << h << endl;
         }
 
@@ -121,7 +121,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 {
     DEHelper* par = reinterpret_cast<DEHelper*>(params);
     Dipole* dipole = par->solver->GetDipole();
-	//cout << "#Evolving, rapidity " << y << ", rpoints: " << dipole->RPoints() << endl;
+	cout << "#Evolving, rapidity " << y << endl;
 
 
     // Create interpolators for N(r) and S(r)=1-N(r)
@@ -167,7 +167,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         double lo = par->solver->RapidityDerivative_lo(dipole->RVal(i), &interp);
 
         double nlo=0;
-        if (!LO_BK)
+        if (!LO_BK and !NO_K2)
             nlo = par->solver->RapidityDerivative_nlo(dipole->RVal(i), &interp, &interp_s);
 
         if (config::DNDY)
@@ -321,7 +321,6 @@ double Inthelperf_lo_theta(double theta, void* p)
 
 double BKSolver::Kernel_lo(double r, double z, double theta)
 {
-    const double musqr = 0;   // scale in NLO part of LO kernel
     
     // Y = y-z = z
     double Y=z;
@@ -349,37 +348,12 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         return result;
     }
 
-    ////// QCD
+    // ************************************************** QCD
 
-    // Fixed as
-    if (RC_LO == FIXED_LO)
-    {
-        cerr << "Fixed coupling? " <<  LINEINFO << endl;
-        result = FIXED_AS * NC/(2.0*M_PI*M_PI) *  r*r / (X*X * Y*Y);
+    // Fixed as or Balitsky
+    // Note: in the limit alphas(r)=const Balitsky -> Fixed coupling as
 
-        if (LO_BK)
-            return result;
-        
-        if (EQUATION == CONFORMAL_QCD)   ///TODO: should we include ~beta terms here or not?
-        {
-            result *= (1.0 + FIXED_AS*NC/(4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0) );
-            return result;
-        }
-        else if (EQUATION == QCD)
-        {
-            result *= (1.0 + FIXED_AS * NC / (4.0*M_PI)  *
-                (
-                /*11.0/3.0*std::log(SQR(r))*musqr
-                -11.0/3.0 * (SQR(X) - SQR(Y) ) / SQR(r) * std::log( SQR(X/Y) ) */   // included in as, proportional to beta
-                + 67.0/9.0 - SQR(M_PI)/3.0
-                - 10.0/9.0 * NF/NC
-                - 2.0 * std::log( SQR(X/r) ) * std::log( SQR(Y/r) )   
-                )
-            );
-            return result;
-        } 
-    }
-    else if (RC_LO == BALITSKY_LO)
+    if (RC_LO == BALITSKY_LO or RC_LO == FIXED_LO)
     {
         double alphas_y = Alphas(Y);
         double alphas_x = Alphas(X);
@@ -402,7 +376,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         }
 
         double dlog = 1.0;
-        if (config::DOUBLELOG_LO_KERNEL == false or config::RESUM_DLOG)
+        if (config::DOUBLELOG_LO_KERNEL == false or config::RESUM_DLOG == true)
             dlog=0.0;
 
         double lo=1.0;
@@ -413,9 +387,18 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         if (config::RESUM_DLOG)
         {
             double x =  4.0*std::log(X/r) * std::log(Y/r) ;
-            // argument to the Bessel function is 2sqrt(bar as * x^2)
-            double as_x = std::sqrt( Alphas(r)*NC/M_PI ) * x;
-            resum = gsl_sf_bessel_J1(2.0*as_x) / as_x;
+            if (x >=0)
+            {            
+                // argument to the Bessel function is 2sqrt(bar as * x^2)
+                double as_x = std::sqrt( Alphas(r)*NC/M_PI * x );
+                resum = gsl_sf_bessel_J1(2.0*as_x) / as_x;
+            }
+            else // L_xzr L_yzr < 0
+            {
+                x = std::abs(x);
+                double as_x = std::sqrt( Alphas(r)*NC/M_PI * x);
+                resum = gsl_sf_bessel_I1(2.0*as_x)/as_x;  
+            }
 
             if (isnan(resum))
             {
@@ -423,15 +406,51 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
             }
         }
 
+        
+
+        // Resum single logs
+        double singlelog_resum = 1.0;
+        double singlelog_resum_expansion = 0;
+        if (config::RESUM_SINGLE_LOG)
+        {
+            double minxy = std::min(X,Y);
+            double sign = 1.0;
+            if (r >= minxy)
+                sign = -1.0;
+            double alphabar = Alphas(r)*NC/M_PI;
+            const double A1 = 11.0/12.0;
+            singlelog_resum = std::pow( SQR(r/minxy), sign*A1*alphabar );
+
+            // remove as^2 part of the single log resummation
+            // as it is part of the full NLO coming from K2
+            singlelog_resum_expansion = sign * alphabar * A1 * 2.0*std::log( r/minxy );
+            if (config::NO_K2)  // no K2 (finite as^2 terms) included, so dont remove this
+                singlelog_resum_expansion = 0;
+        }
+
+        // Effect of subtraction, parent dipole
+        //return Alphas(r)*NC/(2.0*M_PI*M_PI) * SQR(r/(X*Y)) * singlelog_resum_expansion;
+        // Effect of subtraction, Balitsky
+        //return result*singlelog_resum_expansion;
+
+        // resummation contribution
+        if (config::ONLY_RESUM_DLOG)
+            return result * (resum*singlelog_resum - singlelog_resum_expansion - 1.0);
+            //return (resum-1.0)*result;
+
         // At NLO, Balitsky kernel gets the double log and constants
         if (EQUATION==QCD)
         {
-            result = lo*resum*result + Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
+            result = lo*resum*singlelog_resum*result
+                    - lo*result*singlelog_resum_expansion   // remove as^2 part of single log resummation
+                    + Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
                         * Alphas(r) * NC / (4.0*M_PI) 
                             * (
                             67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0 * NF/NC
                             - dlog*2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r )
                             );
+
+            
             return result;
         }
         if (EQUATION==CONFORMAL_QCD)
@@ -513,49 +532,6 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         }
         else if (EQUATION == CONFORMAL_QCD)
              result *= lo + Alphas(r)*NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC ) ;
-        else
-            cerr << "Uknwon equation! " << LINEINFO << endl;
-
-        return result;
-
-    }
-    else if (RC_LO == PARENT_BETA_LO)   ///TODO: tarkista beta:n arvo
-    {       
-        result = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
-            * (1.0 + Alphas(r)*NC/(4.0*M_PI) * (-11.0/3.0 * ( SQR(X) - SQR(Y) ) / SQR(r) * 2.0*std::log(X/Y) ) );
-
-        if (LO_BK)
-            return result;
-        
-
-            
-        double lo = 1.0;
-        if (config::ONLY_NLO)
-            lo = 0;
-
-        double dlog = 1.0;
-        if (config::DOUBLELOG_LO_KERNEL == false)
-            dlog=0.0;
-        
-
-        if (EQUATION == QCD)
-        {
-            result = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
-                * ( lo +
-                    Alphas(r) * NC / (4.0*M_PI)
-                    * (
-                        lo*(-11.0/3.0 * ( SQR(X) - SQR(Y) ) / SQR(r) * 2.0*std::log(X/Y) )
-                        + 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC
-                        - dlog*2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
-                        )
-                    );
-            return result;
-        }
-        else if (EQUATION == CONFORMAL_QCD)
-             result = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
-             *  ( lo
-                    + Alphas(r)*NC / (4.0*M_PI) * ( lo*(-11.0/3.0 * ( SQR(X) - SQR(Y) ) / SQR(r) * 2.0*std::log(X/Y) ) + 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC )
-                );
         else
             cerr << "Uknwon equation! " << LINEINFO << endl;
 
@@ -1206,6 +1182,9 @@ double BKSolver::Kernel_nlo_n4_sym(double r, double X, double Y, double X2, doub
 // Running coupling
 double BKSolver::Alphas(double r)
 {
+    if (RC_LO == FIXED_LO or RC_NLO == FIXED_NLO)
+        return config::FIXED_AS;
+    
 	double Csqr=config::ALPHAS_SCALING;
 	double scalefactor = 4.0*Csqr;
 	double rsqr = r*r;

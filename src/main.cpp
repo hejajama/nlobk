@@ -73,6 +73,9 @@ int main(int argc, char* argv[])
         cout << "-dndy: print dn/dy at initial condition and exit" << endl;
         cout << "-alphas_scaling C^2: set C^2 [setting mv/mve/mvgamma ic sets this also]" << endl;
         cout << "-resum_dlog: resum double log when solving non-conformal dipole" << endl;
+        cout << "-resum_slog: resum single log" << endl;
+        cout << "-no_k2: do not include K_2 and K_f" << endl;
+        cout << "-ONLY_RESUM_DLOG: only calculate the effect of resummation" << endl;
 
         return 0;
     }
@@ -267,7 +270,20 @@ int main(int argc, char* argv[])
 
         else if (string(argv[i])=="-resum_dlog")
             config::RESUM_DLOG = true;
-    
+
+        else if (string(argv[i])=="-resum_slog")
+            config::RESUM_SINGLE_LOG = true;
+        
+        else if (string(argv[i])=="-no_k2")
+            config::NO_K2 = true;
+
+        else if (string(argv[i])=="-ONLY_RESUM_DLOG")
+        {
+            config::ONLY_RESUM_DLOG = true;
+            config::RESUM_DLOG = true;
+            config::NO_K2 = true;
+        }
+        
         else if (string(argv[i]).substr(0,1)=="-") 
         {
             cerr << "Unrecoginzed parameter " << argv[i] << endl;
@@ -296,6 +312,13 @@ int main(int argc, char* argv[])
     {
         cerr << "Asked to resum dlog and solve something else than qcd!" << endl;
         exit(1);
+    }
+
+    if ( (config::RC_LO == FIXED_LO and config::RC_NLO != FIXED_NLO)
+        or (config::RC_NLO == FIXED_NLO and config::RC_LO != FIXED_LO) )
+    {
+            cerr << "Must have fixed coupling in both LO and NLO!" << endl;
+            exit(1);
     }
     
     cout << "# " << NLOBK_CONFIG_STRING() << endl;
@@ -410,6 +433,15 @@ std::string NLOBK_CONFIG_STRING()
             ss << endl;
             ss << "# Resumming double log";
         }
-    
+        if (config::RESUM_SINGLE_LOG)
+        {
+            ss << endl;
+            ss << "# Resumming single log";
+        }
+
+        if (config::NO_K2)
+        {
+            ss << endl << "# Not including K2 and Kf" << endl;
+        }
     return ss.str();
 }
