@@ -51,8 +51,6 @@ int main(int argc, char* argv[])
         cout << argv[i] << " ";
     cout << endl; cout << "#" << endl;
 
-    
-
     if (string(argv[1])=="-help")
     {
         cout <<"-ic FILE filename: set initial condition (default: MV)" << endl;

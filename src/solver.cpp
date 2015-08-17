@@ -424,8 +424,6 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
             // remove as^2 part of the single log resummation
             // as it is part of the full NLO coming from K2
             singlelog_resum_expansion = sign * alphabar * A1 * 2.0*std::log( r/minxy );
-            if (config::NO_K2)  // no K2 (finite as^2 terms) included, so dont remove this
-                singlelog_resum_expansion = 0;
         }
 
         // Effect of subtraction, parent dipole
@@ -435,14 +433,14 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 
         // resummation contribution
         if (config::ONLY_RESUM_DLOG)
-            return result * (resum*singlelog_resum - singlelog_resum_expansion - 1.0);
+            return result * (resum*singlelog_resum - 1.0);
             //return (resum-1.0)*result;
 
         // At NLO, Balitsky kernel gets the double log and constants
         if (EQUATION==QCD)
         {
             result = lo*resum*singlelog_resum*result
-                    - lo*result*singlelog_resum_expansion   // remove as^2 part of single log resummation
+                    - result*singlelog_resum_expansion   // remove as^2 part of single log resummation
                     + Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
                         * Alphas(r) * NC / (4.0*M_PI) 
                             * (
