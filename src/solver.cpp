@@ -439,10 +439,10 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         // At NLO, Balitsky kernel gets the double log and constants
         if (EQUATION==QCD)
         {
+            double lo_kernel = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y); // lo kernel with parent dipole
             result = lo*resum*singlelog_resum*result
-                    - result*singlelog_resum_expansion   // remove as^2 part of single log resummation
-                    + Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
-                        * Alphas(r) * NC / (4.0*M_PI) 
+                    - lo_kernel * singlelog_resum_expansion   // remove as^2 part of single log resummation
+                    + lo_kernel * Alphas(r) * NC / (4.0*M_PI) 
                             * (
                             67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0 * NF/NC
                             - dlog*2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r )
