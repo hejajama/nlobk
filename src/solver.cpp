@@ -21,7 +21,7 @@
 #include <gsl/gsl_monte_plain.h>
 
 // Integration constants
-const double eps = 1e-20;
+const double eps = 1e-40;
 using namespace config;
 
 BKSolver::BKSolver(Dipole* d)
@@ -631,7 +631,7 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
 
         
         
-        const int maxiter_vegas=10;
+        const int maxiter_vegas=3;
 
         if (INTMETHOD_NLO == VEGAS)
         {
@@ -645,8 +645,8 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
               {
                 gsl_monte_vegas_integrate (&fun, min, max, dim, calls, rnd, s,
                                            &result, &abserr);
-                //#pragma omp critical
-                //cout << "#Result(r=" << r <<") " << result << " err " << abserr << " relchange " << (result-prevres)/prevres << " chi^2 " << gsl_monte_vegas_chisq (s) << endl;
+                #pragma omp critical
+                cout << "#Result(r=" << r <<") " << result << " err " << abserr << " relchange " << (result-prevres)/prevres << " chi^2 " << gsl_monte_vegas_chisq (s) << endl;
                 prevres=result;
                 iters++;
               }
@@ -1025,7 +1025,7 @@ double BKSolver::Kernel_nlo(double r, double X, double Y, double X2, double Y2, 
 
     kernel += (
         ( SQR(X*Y2) + SQR(X2*Y) - 4.0*SQR(r*z_m_z2) ) / ( std::pow(z_m_z2,4) * (SQR(X*Y2) - SQR(X2*Y)) )
-        + std::pow(r,4) / ( SQR(X*Y2)*( SQR(X*Y2) - SQR(X2*Y) ) )
+        + std::pow(r,4) / ( SQR(X*Y2)*( SQR(X*Y2) - SQR(X2*Y) )  )
         + SQR(r) / ( SQR(X*Y2*z_m_z2) )
         ) * 2.0*std::log( X*Y2/(X2*Y) );
 

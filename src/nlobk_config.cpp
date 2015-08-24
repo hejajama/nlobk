@@ -1,6 +1,6 @@
 /*
  * nloBK equation solver
- * Heikki Mäntysaari <heikki.mantysaari@jyu.fi>, 2013-2014
+ * Heikki Mäntysaari <heikki.mantysaari@jyu.fi>, 2013-2015  
  */
 
 #include "nlobk_config.hpp"
@@ -22,12 +22,12 @@ namespace config
      double MINR=1e-6;
      unsigned int RPOINTS = 100;
 
-     size_t MCINTPOINTS = 5e5;
+     size_t MCINTPOINTS = 1e7;
 
 
      Equation EQUATION = QCD;  
 
-     double DE_SOLVER_STEP = 0.4;
+     double DE_SOLVER_STEP = 0.1;
 
 
      double FIXED_AS = 0.01;
