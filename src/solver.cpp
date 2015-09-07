@@ -121,7 +121,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 {
     DEHelper* par = reinterpret_cast<DEHelper*>(params);
     Dipole* dipole = par->solver->GetDipole();
-	cout << "#Evolving, rapidity " << y << endl;
+	//cout << "#Evolving, rapidity " << y << endl;
 
 
     // Create interpolators for N(r) and S(r)=1-N(r)
@@ -288,12 +288,20 @@ double Inthelperf_lo_theta(double theta, void* p)
     double z = helper->z;
 
     // X = x - z = r - z
-    double X = std::sqrt( r*r + z*z - 2.0*r*z*std::cos(theta));
+    double Xsqr = r*r + z*z - 2.0*r*z*std::cos(theta);
+    if (Xsqr < 0)
+        Xsqr=0; // In the very limiting case numerical errors may turn Xsqr<0, when
+            // we should have Xsqr \approx 0
+    double X = std::sqrt( Xsqr );
     // Y = y - z = z
     double Y = z;
 
 
-
+    if (isnan(X) or isnan(Y))
+    {
+        cerr << "NaN! X=" << X <<", Y=" << Y << " " << LINEINFO << endl;
+        exit(1);
+    }
 
     double N_X = helper->dipole_interp->Evaluate(X);    // N(X)
     double N_Y = helper->dipole_interp->Evaluate(Y);
@@ -397,7 +405,16 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
             {
                 x = std::abs(x);
                 double as_x = std::sqrt( Alphas(r)*NC/M_PI * x);
-                resum = gsl_sf_bessel_I1(2.0*as_x)/as_x;  
+                gsl_sf_result res;
+                int status = gsl_sf_bessel_I1_e(2.0*as_x, &res);
+                
+                if (status != GSL_SUCCESS)
+                {
+					cerr << "GSL error " << status <<", result " << res.val << ", as_x=" << as_x << ", x=" << x << ", r=" << r<<", X=" << X << ", Y=" << Y << ": " << LINEINFO << endl;
+					return 0;
+				}
+				resum = res.val / as_x;
+                //resum = gsl_sf_bessel_I1(2.0*as_x)/as_x;  
             }
 
             if (isnan(resum))
@@ -419,15 +436,16 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
                 sign = -1.0;
             double alphabar = Alphas(r)*NC/M_PI;
             const double A1 = 11.0/12.0;
-            singlelog_resum = std::pow( SQR(r/minxy), sign*A1*alphabar );
+            singlelog_resum = std::pow( config::KSUB * SQR(r/minxy), sign*A1*alphabar );
 
             // remove as^2 part of the single log resummation
             // as it is part of the full NLO coming from K2
-            singlelog_resum_expansion = sign * alphabar * A1 * 2.0*std::log( r/minxy );
+            singlelog_resum_expansion = sign * alphabar * A1 * 2.0*std::log( std::sqrt(config::KSUB)*r/minxy );
         }
 
         // Effect of subtraction, parent dipole
-        //return Alphas(r)*NC/(2.0*M_PI*M_PI) * SQR(r/(X*Y)) * singlelog_resum_expansion;
+        if (config::ONLY_SUBTRACTION)
+			return Alphas(r)*NC/(2.0*M_PI*M_PI) * SQR(r/(X*Y)) * singlelog_resum_expansion;
         // Effect of subtraction, Balitsky
         //return result*singlelog_resum_expansion;
 
@@ -439,6 +457,13 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         // At NLO, Balitsky kernel gets the double log and constants
         if (EQUATION==QCD)
         {
+			
+			if (NO_K2 and RESUM_DLOG and RESUM_SINGLE_LOG)
+			{
+				// Resummed K_1, no subtraction or other as^2 terms in K_1
+				return resum*singlelog_resum*result;
+			}
+			
             double lo_kernel = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y); // lo kernel with parent dipole
             result = lo*resum*singlelog_resum*result
                     - lo_kernel * singlelog_resum_expansion   // remove as^2 part of single log resummation

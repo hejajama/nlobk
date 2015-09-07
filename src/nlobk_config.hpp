@@ -97,6 +97,10 @@ namespace config
     extern bool NO_K2;      // Do not include K_2
 
     extern bool ONLY_RESUM_DLOG; // Calculate contribution from resummation
+    
+    extern double KSUB;	// Constant factor in the sigle log resummation log
+    
+    extern bool ONLY_SUBTRACTION;	// Calculate only effect from subtraction
 
     
 }

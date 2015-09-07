@@ -14,23 +14,23 @@ namespace config
      double LAMBDAQCD = 0.241;
      double LAMBDAQCD2 = LAMBDAQCD*LAMBDAQCD;
 
-     int RINTPOINTS=25;
-     int THETAINTPOINTS = 25;
-     double INTACCURACY=0.1;
+     int RINTPOINTS=55;
+     int THETAINTPOINTS = 45;
+     double INTACCURACY=0.01;
      double MCINTACCURACY = 0.2;
      double MAXR = 50;
      double MINR=1e-6;
-     unsigned int RPOINTS = 100;
+     unsigned int RPOINTS = 170;
 
-     size_t MCINTPOINTS = 1e7;
+     size_t MCINTPOINTS = 1e6;
 
 
      Equation EQUATION = QCD;  
 
-     double DE_SOLVER_STEP = 0.1;
+     double DE_SOLVER_STEP = 0.05;
 
 
-     double FIXED_AS = 0.01;
+     double FIXED_AS = 0.2;
 
 
      RunningCouplingLO RC_LO = BALITSKY_LO;
@@ -60,4 +60,8 @@ namespace config
      bool NO_K2 = false;
 
      bool ONLY_RESUM_DLOG = false;
+     
+     bool ONLY_SUBTRACTION = false;
+     
+     double KSUB = 1.0;
 }
