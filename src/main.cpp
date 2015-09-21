@@ -209,6 +209,7 @@ int main(int argc, char* argv[])
             {
                 config::RC_LO = config::SMALLEST_LO;
                 config::RC_NLO = config::SMALLEST_NLO;
+                config::RESUM_RC = config::RESUM_RC_SMALLEST;
             }
             else if (string(argv[i+1])=="fixed")
             {
@@ -219,6 +220,7 @@ int main(int argc, char* argv[])
             {
                 config::RC_LO = config::BALITSKY_LO;
                 config::RC_NLO = config::PARENT_NLO;
+                config::RESUM_RC = config::RESUM_RC_PARENT;
             }
             else
             {
@@ -449,7 +451,11 @@ std::string NLOBK_CONFIG_STRING()
 	if (config::RESUM_SINGLE_LOG)
 	{
 		ss << endl;
-		ss << "# Resumming single log, K_sub=" << config::KSUB << endl;
+		ss << "# Resumming single log, K_sub=" << config::KSUB;
+		if (config::RESUM_RC == RESUM_RC_PARENT) ss << " resum rc: parent";
+        else if (config::RESUM_RC == RESUM_RC_SMALLEST) ss << " resum rc: smallest";
+		else if (config::RESUM_RC == RESUM_RC_BALITSKY) ss << " resum rc: balitsky";
+		ss << endl;
 	}
 	
 	if (config::ONLY_SUBTRACTION)

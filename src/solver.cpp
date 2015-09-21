@@ -163,7 +163,8 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 	#pragma omp parallel for
     for (unsigned int i=0; i< dipole->RPoints(); i+=1)
     {
-
+        //if (dipole->RVal(i) < 0.01)
+        //    continue;
         double lo = par->solver->RapidityDerivative_lo(dipole->RVal(i), &interp);
 
         double nlo=0;
@@ -358,6 +359,12 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 
     // ************************************************** QCD
 
+    double min = std::min(X, Y);
+    if (r < min)
+        min=r;
+
+    double alphas_scale = 0;
+
     // Fixed as or Balitsky
     // Note: in the limit alphas(r)=const Balitsky -> Fixed coupling as
 
@@ -372,200 +379,160 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
             + 1.0/SQR(Y)*(alphas_y/alphas_x - 1.0)
             + 1.0/SQR(X)*(alphas_x/alphas_y - 1.0)
             );
-
-        if (LO_BK)
-            return result;
-
-        if (config::ONLY_DOUBLELOG)
-        {  
-            return Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
-                        * Alphas(r) * NC / (4.0*M_PI)
-                        * (- 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) ) ;
-        }
-
-        double dlog = 1.0;
-        if (config::DOUBLELOG_LO_KERNEL == false or config::RESUM_DLOG == true)
-            dlog=0.0;
-
-        double lo=1.0;
-        if (config::ONLY_NLO)
-            lo=0;
-
-        double resum=1.0;
-        if (config::RESUM_DLOG)
-        {
-            double x =  4.0*std::log(X/r) * std::log(Y/r) ;
-            if (x >=0)
-            {            
-                // argument to the Bessel function is 2sqrt(bar as * x^2)
-                double as_x = std::sqrt( Alphas(r)*NC/M_PI * x );
-                resum = gsl_sf_bessel_J1(2.0*as_x) / as_x;
-            }
-            else // L_xzr L_yzr < 0
-            {
-                x = std::abs(x);
-                double as_x = std::sqrt( Alphas(r)*NC/M_PI * x);
-                gsl_sf_result res;
-                int status = gsl_sf_bessel_I1_e(2.0*as_x, &res);
-                
-                if (status != GSL_SUCCESS)
-                {
-					cerr << "GSL error " << status <<", result " << res.val << ", as_x=" << as_x << ", x=" << x << ", r=" << r<<", X=" << X << ", Y=" << Y << ": " << LINEINFO << endl;
-					return 0;
-				}
-				resum = res.val / as_x;
-                //resum = gsl_sf_bessel_I1(2.0*as_x)/as_x;  
-            }
-
-            if (isnan(resum))
-            {
-                resum = 1.0;    // 0/0 -> 1 TODO: check
-            }
-        }
-
-        
-
-        // Resum single logs
-        double singlelog_resum = 1.0;
-        double singlelog_resum_expansion = 0;
-        if (config::RESUM_SINGLE_LOG)
-        {
-            double minxy = std::min(X,Y);
-            double sign = 1.0;
-            if (r >= minxy)
-                sign = -1.0;
-            double alphabar = Alphas(r)*NC/M_PI;
-            const double A1 = 11.0/12.0;
-            singlelog_resum = std::pow( config::KSUB * SQR(r/minxy), sign*A1*alphabar );
-
-            // remove as^2 part of the single log resummation
-            // as it is part of the full NLO coming from K2
-            singlelog_resum_expansion = sign * alphabar * A1 * 2.0*std::log( std::sqrt(config::KSUB)*r/minxy );
-        }
-
-        // Effect of subtraction, parent dipole
-        if (config::ONLY_SUBTRACTION)
-			return Alphas(r)*NC/(2.0*M_PI*M_PI) * SQR(r/(X*Y)) * singlelog_resum_expansion;
-        // Effect of subtraction, Balitsky
-        //return result*singlelog_resum_expansion;
-
-        // resummation contribution
-        if (config::ONLY_RESUM_DLOG)
-            return result * (resum*singlelog_resum - 1.0);
-            //return (resum-1.0)*result;
-
-        // At NLO, Balitsky kernel gets the double log and constants
-        if (EQUATION==QCD)
-        {
-			
-			if (NO_K2 and RESUM_DLOG and RESUM_SINGLE_LOG)
-			{
-				// Resummed K_1, no subtraction or other as^2 terms in K_1
-				return resum*singlelog_resum*result;
-			}
-			
-            double lo_kernel = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y); // lo kernel with parent dipole
-            result = lo*resum*singlelog_resum*result
-                    - lo_kernel * singlelog_resum_expansion   // remove as^2 part of single log resummation
-                    + lo_kernel * Alphas(r) * NC / (4.0*M_PI) 
-                            * (
-                            67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0 * NF/NC
-                            - dlog*2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r )
-                            );
-
-            
-            return result;
-        }
-        if (EQUATION==CONFORMAL_QCD)
-        {
-            result = lo*result + Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
-                        * Alphas(r) * NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0 * NF/NC );
-            return result;
-        }
+        alphas_scale = r;
     }
     else if (RC_LO == SMALLEST_LO)
     {
-        double as = 0;
-        double min_size = r;
-        if (X < min_size) min_size = X;
-        if (Y < min_size) min_size = Y;
-        as = Alphas(min_size);
-        
-       
-
-        result = as*NC/(2.0*M_PI*M_PI) *  r*r / (X*X * Y*Y);
-
-        if (LO_BK)
-        {
-            return result;
-        }
-            
-
-        double lo = 1.0;
-        if (config::ONLY_NLO)
-            lo = 0;
-
-        double dlog = 1.0;
-        if (config::DOUBLELOG_LO_KERNEL == false)
-            dlog=0;
-        
-        if (EQUATION == CONFORMAL_QCD)
-        {
-
-                result *= lo + as*NC / (4.0*M_PI) * (67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC);
-        }
-        else if (EQUATION == QCD)
-        {
-            result *=
-                lo + as * NC / (4.0*M_PI) * (
-                        67.0/9.0 - SQR(M_PI)/3.0 
-                        - 10.0/9.0*NF/NC
-                    - dlog*2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
-                    ) ; 
-                //- as * NC / (4.0*M_PI) * 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r );
-                    
-        }
-        return result;
+        result = NC*Alphas(min) / (2.0*SQR(M_PI))*SQR(r/(X*Y));
+        alphas_scale = min;
     }
-    
     else if (RC_LO == PARENT_LO)
-    {       
-        result = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y);
-        if (LO_BK)
-        {
-            return result;
-        }
-            
-        double lo = 1.0;
-        if (config::ONLY_NLO)
-            lo = 0;
-        
-
-        if (EQUATION == QCD)
-        {
-            result = Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
-                * ( lo +
-                    Alphas(r) * NC / (4.0*M_PI)
-                    * (
-                        67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC
-                        - 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) 
-                        )
-                    );
-            return result;
-        }
-        else if (EQUATION == CONFORMAL_QCD)
-             result *= lo + Alphas(r)*NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0*NF/NC ) ;
-        else
-            cerr << "Uknwon equation! " << LINEINFO << endl;
-
-        return result;
-
+    {
+        result = NC*Alphas(r) / (2.0*SQR(M_PI)) * SQR(r/(X*Y));
+        alphas_scale = r;
     }
     else
     {
         cerr << "Unknown LO kernel RC! " << LINEINFO << endl;
         return -1;
     }
+    
+
+    if (LO_BK)
+        return result;
+
+
+    ////// Resummations
+    double resummation_alphas = 0;
+    if (config::RESUM_RC == RESUM_RC_PARENT)
+        resummation_alphas = Alphas(r);
+    else if (config::RESUM_RC == config::RESUM_RC_SMALLEST)
+        resummation_alphas = Alphas(min);
+    else if (config::RESUM_RC == config::RESUM_RC_BALITSKY)
+        cerr << "Check balitsky prescription resummation code! " << LINEINFO << endl;
+    else
+    {
+        cerr << "Unknown resummation alphas scale! " << LINEINFO << endl;
+        exit(1);
+    }
+
+    if (config::ONLY_DOUBLELOG)
+    {  
+        return resummation_alphas*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
+                    * resummation_alphas * NC / (4.0*M_PI)
+                    * (- 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) ) ;
+    }
+
+    double dlog = 1.0;
+    if (config::DOUBLELOG_LO_KERNEL == false or config::RESUM_DLOG == true)
+        dlog=0.0;
+
+    double lo=1.0;
+    if (config::ONLY_NLO)
+        lo=0;
+
+    double resum=1.0;
+    if (config::RESUM_DLOG)
+    {
+        double x =  4.0*std::log(X/r) * std::log(Y/r) ; // rho^2 in Ref.
+        if (x >=0)
+        {            
+            // argument to the Bessel function is 2sqrt(bar as * x)
+            double as_x = std::sqrt( resummation_alphas*NC/M_PI * x );
+            resum = gsl_sf_bessel_J1(2.0*as_x) / as_x;
+        }
+        else // L_xzr L_yzr < 0
+        {
+            x = std::abs(x);
+            double as_x = std::sqrt( resummation_alphas*NC/M_PI * x);
+            gsl_sf_result res;
+            int status = gsl_sf_bessel_I1_e(2.0*as_x, &res);
+            
+            if (status != GSL_SUCCESS)
+            {
+                cerr << "GSL error " << status <<", result " << res.val << ", as_x=" << as_x << ", x=" << x << ", r=" << r<<", X=" << X << ", Y=" << Y << ": " << LINEINFO << endl;
+                return 0;
+            }
+            resum = res.val / as_x; 
+        }
+
+        if (isnan(resum))
+        {
+            resum = 1.0;    // 0/0 -> 1 TODO: check
+        }
+    }
+
+    
+
+    // Resum single logs
+    double singlelog_resum = 1.0;
+    double singlelog_resum_expansion = 0;
+    if (config::RESUM_SINGLE_LOG)
+    {
+        double minxy = std::min(X,Y);
+        
+        double alphabar = resummation_alphas*NC/M_PI;
+        const double A1 = 11.0/12.0;
+        //singlelog_resum = std::pow( config::KSUB * SQR(r/minxy), sign*A1*alphabar );
+        singlelog_resum = std::exp( - alphabar * A1 * std::abs( std::log( config::KSUB * SQR(r/minxy) ) ) );
+
+        // remove as^2 part of the single log resummation
+        // as it is part of the full NLO coming from K2
+        //singlelog_resum_expansion = sign * alphabar * A1 * 2.0*std::log( std::sqrt(config::KSUB)*r/minxy );
+        singlelog_resum_expansion = - alphabar * A1 * std::abs( 2.0 * std::log( std::sqrt(config::KSUB) * r/minxy ) ) ;
+    }
+
+    // Effect of subtraction, parent dipole
+    if (config::ONLY_SUBTRACTION)
+    {
+        if (config::RESUM_RC == RESUM_RC_PARENT)
+            return resummation_alphas*NC/(2.0*M_PI*M_PI) * SQR(r/(X*Y)) * singlelog_resum_expansion;
+        else if (config::RESUM_RC == RESUM_RC_BALITSKY)
+            return result * singlelog_resum_expansion;
+    }
+
+    // resummation contribution
+    if (config::ONLY_RESUM_DLOG)
+        return result * (resum*singlelog_resum - 1.0);
+        //return (resum-1.0)*result;
+
+    // At NLO, Balitsky kernel gets the double log and constants
+    if (EQUATION==QCD)
+    {
+        
+        if (NO_K2 and RESUM_DLOG and RESUM_SINGLE_LOG)
+        {
+            // Resummed K_1, no subtraction or other as^2 terms in K_1
+            return resum*singlelog_resum*result;
+        }
+        
+        double lo_kernel = Alphas(alphas_scale)*NC/(2.0*M_PI*M_PI) * SQR( r / (X*Y)); // lo kernel with parent/smallest dipole
+        double subtract = 0;
+        if (config::RESUM_RC != RESUM_RC_BALITSKY)
+            subtract = lo_kernel * singlelog_resum_expansion;
+        else    // Balitsky
+            subtract = result * singlelog_resum_expansion;
+
+        result = lo*resum*singlelog_resum*result
+                - subtract   // remove as^2 part of single log resummation
+                + lo_kernel * Alphas(alphas_scale) * NC / (4.0*M_PI) 
+                        * (
+                        67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0 * NF/NC
+                        - dlog*2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r )
+                        );
+
+        
+        return result;
+    }
+    if (EQUATION==CONFORMAL_QCD)
+    {
+        result = lo*result + Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
+                    * Alphas(r) * NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0 * NF/NC );
+        return result;
+    }
+
+    
+    
 
     if (isnan(result) or isinf(result))
     {

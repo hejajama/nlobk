@@ -93,6 +93,15 @@ namespace config
 
     extern bool RESUM_DLOG; // Resum double log
     extern bool RESUM_SINGLE_LOG;
+    
+    enum SINGLELOG_RESUM_RC
+    {
+		RESUM_RC_BALITSKY,
+		RESUM_RC_PARENT,
+        RESUM_RC_SMALLEST
+	};
+	
+	extern SINGLELOG_RESUM_RC RESUM_RC;
 
     extern bool NO_K2;      // Do not include K_2
 

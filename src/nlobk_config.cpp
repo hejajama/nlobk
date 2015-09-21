@@ -15,14 +15,14 @@ namespace config
      double LAMBDAQCD2 = LAMBDAQCD*LAMBDAQCD;
 
      int RINTPOINTS=55;
-     int THETAINTPOINTS = 45;
-     double INTACCURACY=0.01;
+     int THETAINTPOINTS = 55;
+     double INTACCURACY=0.005;
      double MCINTACCURACY = 0.2;
      double MAXR = 50;
      double MINR=1e-6;
      unsigned int RPOINTS = 170;
 
-     size_t MCINTPOINTS = 1e6;
+     size_t MCINTPOINTS = 1e8;
 
 
      Equation EQUATION = QCD;  
@@ -64,4 +64,6 @@ namespace config
      bool ONLY_SUBTRACTION = false;
      
      double KSUB = 1.0;
+     
+     SINGLELOG_RESUM_RC RESUM_RC = RESUM_RC_PARENT;
 }
