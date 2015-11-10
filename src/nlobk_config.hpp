@@ -111,6 +111,8 @@ namespace config
     
     extern bool ONLY_SUBTRACTION;	// Calculate only effect from subtraction
 
+    extern bool ONLY_K1FIN; // Only K1fin contribution from K_1
+
     
 }
 

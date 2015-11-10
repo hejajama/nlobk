@@ -79,6 +79,7 @@ int main(int argc, char* argv[])
         cout << "-only_subtraction: calculate only effect from subtraction" << endl;
         cout << "-no_k2: do not include K_2 and K_f" << endl;
         cout << "-ONLY_RESUM_DLOG: only calculate the effect of resummation" << endl;
+        cout << "-only_k1fin: include only k1fin contribution from k1"; 
 
         return 0;
     }
@@ -296,6 +297,8 @@ int main(int argc, char* argv[])
             config::RESUM_DLOG = true;
             config::NO_K2 = true;
         }
+        else if (string(argv[i])=="-only_k1fin")
+            config::ONLY_K1FIN = true;
         
         else if (string(argv[i]).substr(0,1)=="-") 
         {
@@ -460,6 +463,9 @@ std::string NLOBK_CONFIG_STRING()
 	
 	if (config::ONLY_SUBTRACTION)
 		ss << endl << "# Only including the subtraction term" << endl;
+
+    if (config::ONLY_K1FIN)
+        ss << endl << "# Only including K1fin part of K1" << endl;
 
 	if (config::NO_K2)
 	{

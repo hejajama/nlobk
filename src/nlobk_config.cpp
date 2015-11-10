@@ -66,4 +66,6 @@ namespace config
      double KSUB = 1.0;
      
      SINGLELOG_RESUM_RC RESUM_RC = RESUM_RC_PARENT;
+
+     bool ONLY_K1FIN = false;
 }

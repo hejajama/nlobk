@@ -19,6 +19,7 @@
 #include <gsl/gsl_monte_vegas.h>
 #include <gsl/gsl_monte_miser.h>
 #include <gsl/gsl_monte_plain.h>
+#include <gsl/gsl_errno.h>
 
 // Integration constants
 const double eps = 1e-40;
@@ -163,7 +164,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 	#pragma omp parallel for
     for (unsigned int i=0; i< dipole->RPoints(); i+=1)
     {
-        //if (dipole->RVal(i) < 0.01)
+        //if (dipole->RVal(i) < 0.001)
         //    continue;
         double lo = par->solver->RapidityDerivative_lo(dipole->RVal(i), &interp);
 
@@ -240,11 +241,11 @@ double BKSolver::RapidityDerivative_lo(double r, Interpolator* dipole_interp)
             GSL_INTEG_GAUSS21, workspace, &result, &abserr);
     gsl_integration_workspace_free(workspace);
 
-    if (status)
+    if (status==GSL_ESING)
     {
-        //#pragma omp critical
-        //cerr << "RInt failed, r=" << r <<": at " << LINEINFO << ", result " << result << ", relerr "
-            //<< std::abs(abserr/result) << endl;
+        #pragma omp critical
+        cerr << "RInt failed, r=" << r <<": at " << LINEINFO << ", result " << result << ", relerr "
+            << std::abs(abserr/result) << endl;
     }
 
     
@@ -265,19 +266,19 @@ double Inthelperf_lo_z(double z, void* p)
 
     int status; double result, abserr;
     status=gsl_integration_qag(&fun, 0,
-            2.0*M_PI, 0, INTACCURACY, THETAINTPOINTS,
+            M_PI, 0, INTACCURACY, THETAINTPOINTS,
             GSL_INTEG_GAUSS21, workspace, &result, &abserr);
     gsl_integration_workspace_free(workspace);
 
-    if (status)
+    if (status == GSL_ESING)
     {
-        //#pragma omp critical
-        //cerr << "RInt failed, v=" << v <<", r=" << helper->r <<": at " << LINEINFO << ", result " << result << ", relerr "
-        //<< std::abs(abserr/result) << endl;
+        #pragma omp critical
+        cerr << "RInt failed, z=" << z <<", r=" << helper->r <<": at " << LINEINFO << ", result " << result << ", relerr "
+        << std::abs(abserr/result) << endl;
     }
 
     result *= std::exp(2.0*z);  // Jacobian v^2 dv
-    //result *= 2.0;  // As integration limits are just [0,pi]
+    result *= 2.0;  // As integration limits are just [0,pi]
     return result;
 }
 
@@ -424,7 +425,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     }
 
     double dlog = 1.0;
-    if (config::DOUBLELOG_LO_KERNEL == false or config::RESUM_DLOG == true)
+    if (config::DOUBLELOG_LO_KERNEL == false or config::RESUM_DLOG == true or config::ONLY_K1FIN )
         dlog=0.0;
 
     double lo=1.0;
@@ -496,7 +497,9 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         return result * (resum*singlelog_resum - 1.0);
         //return (resum-1.0)*result;
 
-    // At NLO, Balitsky kernel gets the double log and constants
+    
+
+
     if (EQUATION==QCD)
     {
         
@@ -513,13 +516,18 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         else    // Balitsky
             subtract = result * singlelog_resum_expansion;
 
-        result = lo*resum*singlelog_resum*result
-                - subtract   // remove as^2 part of single log resummation
-                + lo_kernel * Alphas(alphas_scale) * NC / (4.0*M_PI) 
+        double k1fin = lo_kernel * Alphas(alphas_scale) * NC / (4.0*M_PI) 
                         * (
                         67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0 * NF/NC
                         - dlog*2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r )
                         );
+
+        if (config::ONLY_K1FIN)
+            return k1fin;
+
+        result = lo*resum*singlelog_resum*result
+                - subtract   // remove as^2 part of single log resummation
+                + k1fin;
 
         
         return result;
