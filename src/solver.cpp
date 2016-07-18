@@ -178,7 +178,11 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
                 cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
         }
         dydt[i]= lo + nlo;
-
+		if (isnan(dydt[i]) or isinf(dydt[i]))
+		{
+			cerr << "Result " << dydt[i] << " at r " << dipole->RVal(i) << endl;
+			dydt[i]=0;
+		}
         
     }
     if (config::DNDY)
@@ -392,12 +396,29 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         result = NC*Alphas(r) / (2.0*SQR(M_PI)) * SQR(r/(X*Y));
         alphas_scale = r;
     }
+	else if (RC_LO == FRAC_LO)
+	{
+		// 1507.03651, fastest apparent convergence
+		double asbar_r = Alphas(r)*NC/M_PI;
+		double asbar_x = Alphas(X)*NC/M_PI;
+		double asbar_y = Alphas(Y)*NC/M_PI;
+		result = 1.0/(2.0*M_PI) * std::pow(
+			1.0/asbar_r + (SQR(X)-SQR(Y))/SQR(r) * (asbar_x - asbar_y)/(asbar_x * asbar_y) 		
+		, -1.0);
+		result = result * SQR(r / (X*Y));
+		alphas_scale=r;	// this only affects K1_fin
+	}
     else
     {
         cerr << "Unknown LO kernel RC! " << LINEINFO << endl;
         return -1;
     }
-    
+   
+    if (isnan(result) or isinf(result))
+		{
+				//cerr << "Result " << result << " at r=" << r << ", z=" << z << endl;
+				result=0;
+		}
 
     if (LO_BK)
         return result;
@@ -433,7 +454,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         lo=0;
 
     double resum=1.0;
-    if (config::RESUM_DLOG)
+    if (config::RESUM_DLOG and r > 1.01*config::MINR)
     {
         double x =  4.0*std::log(X/r) * std::log(Y/r) ; // rho^2 in Ref.
         if (x >=0)
@@ -451,7 +472,9 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
             
             if (status != GSL_SUCCESS)
             {
-                cerr << "GSL error " << status <<", result " << res.val << ", as_x=" << as_x << ", x=" << x << ", r=" << r<<", X=" << X << ", Y=" << Y << ": " << LINEINFO << endl;
+				if (isnan(X) or isnan(Y))
+					return 0;	// 0/0, probably z=x or z=y
+                cerr << "GSL error " << status <<", result " << res.val << ", as_x=" << as_x << ", x=" << x << ", r=" << r<<", X=" << X << ", Y=" << Y << ": " << " z: " << z  << LINEINFO << endl;
                 return 0;
             }
             resum = res.val / as_x; 
@@ -459,7 +482,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 
         if (isnan(resum))
         {
-            resum = 1.0;    // 0/0 -> 1 TODO: check
+            resum =  1; //1.0;    // 0/0 -> 1 TODO: check
         }
     }
 
@@ -503,7 +526,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     if (EQUATION==QCD)
     {
         
-        if (NO_K2 and RESUM_DLOG and RESUM_SINGLE_LOG)
+if (NO_K2 and (RESUM_DLOG or RESUM_SINGLE_LOG))
         {
             // Resummed K_1, no subtraction or other as^2 terms in K_1
             return resum*singlelog_resum*result;
@@ -1183,10 +1206,61 @@ double BKSolver::Alphas(double r)
     if (RC_LO == FIXED_LO or RC_NLO == FIXED_NLO)
         return config::FIXED_AS;
     
+	
+	double maxalphas=1.0; // paper: TODO DEBUG0.7;
+	if (config::NF > 3)
+	{
+	/* Varying n_f scheme (heavy quarks are included), compute effective Lambda_QCD
+     * (such that alphas(r) is continuous), see 1012.4408 sec. 2.2.
+     */
+     
+        double dipolescale = 4.0*config::ALPHAS_SCALING / (r*r);
+		double heavyqmasses[2] = {1.3,4.5};
+		double nf;
+        if (dipolescale < SQR(heavyqmasses[0]))
+            nf=3;
+        else if (dipolescale < SQR(heavyqmasses[1]))
+            nf=4;
+        else
+            nf = 5;
+
+        double b0 = 11.0 - 2.0/3.0*nf;
+        // Now we compute "effective" Lambda by requiring that we get the experimental value for alpha_s
+        // at the Z0 mass, alphas(Z0)=0.1184, m(Z0)=91.1876
+        /*double a0=0.1184;
+        double mz = 91.1876;
+        double b5 = 11.0 - 2.0/3.0*5.0; // at Z mass all 5 flavors are active
+        double b4 = 11.0 - 2.0/3.0*4.0;
+        double b3 = 11.0 - 2.0/3.0*3.0;
+        double lambda5 = mz * std::exp(-2.0*M_PI / (a0 * b5) );
+        double lambda4 = std::pow( heavyqmasses[1], 1.0 - b5/b4) * std::pow(lambda5, b5/b4);
+        double lambda3 = std::pow( heavyqmasses[0], 1.0 - b4/b3) * std::pow(lambda4, b4/b3);
+		*/
+		double lambda3=0.146159;
+		double lambda4=0.122944;
+		double lambda5=0.0904389;
+
+		double lqcd;
+        if (nf==5) lqcd=lambda5;
+        else if (nf==4) lqcd=lambda4;
+        else if (nf==3) lqcd=lambda3;
+        else
+            cerr << "WTF, nf=" << nf <<" at " << LINEINFO << endl;
+		double scalefactor = 4.0*config::ALPHAS_SCALING;
+		if (scalefactor/(r*r*lqcd*lqcd) < 1.0) return maxalphas;
+		 double alpha = 4.0*M_PI/(  b0 * std::log(scalefactor/ (r*r*lqcd*lqcd) ) );
+		 if (alpha > maxalphas) return maxalphas; //NOTE HERE b0 definition have factor 3
+    	return alpha; 
+		/*
+		double mu0=2.5;
+		double c=0.2;
+		return 4.0*M_PI / ( b0 * std::log( std::pow( std::pow(mu0, 2.0/c) + std::pow( dipolescale/(lqcd*lqcd), 1.0/c), c) ) );
+		*/
+	}
+
 	double Csqr=config::ALPHAS_SCALING;
 	double scalefactor = 4.0*Csqr;
 	double rsqr = r*r;
-	double maxalphas=0.7;
 	double lambdaqcd=config::LAMBDAQCD;
     const double alphas_mu0=2.5;    // mu0/lqcd
     const double alphas_freeze_c=0.2;

@@ -53,7 +53,8 @@ namespace config
         PARENT_LO,      // Parent dipole where all beta terms are included
         PARENT_BETA_LO, // Parent dipole, only renormalization scale term is included in as, the second beta term is explicit in the expression
         SMALLEST_LO,
-        BALITSKY_LO
+        BALITSKY_LO,
+		FRAC_LO // fastest apparent convergence in 1507.03651
     };
     enum RunningCouplingNLO
     {

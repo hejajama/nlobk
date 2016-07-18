@@ -109,8 +109,8 @@ int main(int argc, char* argv[])
                 ic = new MV();
                 if (string(argv[i+1])=="mv")
                 {
-                    ((MV*)ic)->SetQsqr(0.104);
-                    config::ALPHAS_SCALING = 14.5;
+                    ((MV*)ic)->SetQsqr(0.2);
+                    config::ALPHAS_SCALING=0.315237;
                 }
                 else if (string(argv[i+1])=="mv02")
                 {
@@ -248,7 +248,7 @@ int main(int argc, char* argv[])
         else if (string(argv[i])=="-nf")
         {
             config::NF = StrToInt(argv[i+1]);
-            if (config::NF != 0 and config::NF != 3)
+            if (config::NF != 0 and config::NF != 3 and config::NF != 5)
             {
                 cerr << "Invalid Nf=" << config::NF << " " << LINEINFO << endl;
                 return -1;
