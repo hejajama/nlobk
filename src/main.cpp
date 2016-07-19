@@ -56,7 +56,7 @@ int main(int argc, char* argv[])
     if (string(argv[1])=="-help")
     {
         cout <<"-ic FILE filename: set initial condition (default: MV)" << endl;
-        cout << "-ic PARAM qsqr anomalous_dimension" << endl; 
+        cout << "-ic PARAM qsqr anomalous_dimension ln(e_c)" << endl; 
         cout << "-maxy yval" << endl;
         cout <<"-output filename_to_save_data" << endl;
         cout << "-eq qcd,confqcd,n4: set equation to solve" << endl;
@@ -102,6 +102,7 @@ int main(int argc, char* argv[])
                 ic = new MV();
                 ((MV*)ic)->SetQsqr(StrToReal(argv[i+2]));
                 ((MV*)ic)->SetAnomalousDimension(StrToReal(argv[i+3]));
+				((MV*)ic)->SetE(exp(StrToReal(argv[i+4])));
                 config::ALPHAS_SCALING = 1; // This is set by -alphas_scaling, hopefully
             }
             else
@@ -273,7 +274,8 @@ int main(int argc, char* argv[])
         }
         else if (string(argv[i])=="-alphas_scaling")
             config::ALPHAS_SCALING = StrToReal(argv[i+1]);
-
+		else if (string(argv[i])=="-ln_alphas_scaling")
+			config::ALPHAS_SCALING = exp(StrToReal(argv[i+1]));
         else if (string(argv[i])=="-ln_alphas_scaling")
             config::ALPHAS_SCALING = std::exp(StrToReal(argv[i+1]));
         

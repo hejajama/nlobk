@@ -11,7 +11,8 @@ using std::cerr; using std::endl;
 
 double MV::DipoleAmplitude(double r, double b)
 {
-    cerr << "Note: MVgamma model is modified!!!" << endl;
+/*
+ * cerr << "Note: MVgamma model is modified!!!" << endl;
 	
 	// rcmv from 1507.03651
 	BKSolver solver;	// Becaus Alpha_s is defined there
@@ -23,6 +24,7 @@ double MV::DipoleAmplitude(double r, double b)
 	if (n<0) return 0;
 	if (n>1) return 1;
 	return std::pow(n, 1.0/p);
+*/
 	/*
 	double asat = solver.Alphas(9999999)*config::NC/M_PI;
 	double as = solver.Alphas(r)*config::NC/M_PI;
@@ -49,16 +51,16 @@ double MV::DipoleAmplitude(double r, double b)
 	res = std::pow(res, 1.0/p);
 cout << r<< " " << res << endl;	
 	return res;
+	*/
 	if (b>1e-10)
 		cerr << "Impact parameter is not supported!" << LINEINFO << endl;
 	const double e = 2.7182818;
 	///TODO: some algorithm to determina small r, e.g. when one has to linearize
     if (r < 2e-6)   ///NOTE: factor 1/4 "correctly", not as in AAMS paper
-            return std::pow(SQR(r)*qs0sqr, anomalous_dimension)/1.0
+            return std::pow(SQR(r)*qs0sqr, anomalous_dimension)/4.0
             * std::log( 1.0/(r*std::sqrt(qs0sqr)) + ec*e) ;
-    return 1.0 - std::exp(-std::pow(SQR(r)*qs0sqr, anomalous_dimension)/1.0
+    return 1.0 - std::exp(-std::pow(SQR(r)*qs0sqr, anomalous_dimension)/4.0
             * std::log( 1.0/(r*std::sqrt(qs0sqr)) + ec*e) );
-	*/
 }
 
 

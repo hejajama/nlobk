@@ -33,7 +33,7 @@ namespace config
      double FIXED_AS = 0.2;
 
 
-     RunningCouplingLO RC_LO = FRAC_LO;
+     RunningCouplingLO RC_LO = BALITSKY_LO;
      RunningCouplingNLO RC_NLO = PARENT_NLO;
 
      bool DOUBLELOG_LO_KERNEL = true; // include double log term from the LO kernel
