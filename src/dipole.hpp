@@ -40,6 +40,10 @@ class Dipole
         double YVal(unsigned int yind);
 
         int Save(std::string filename);
+    
+        std::vector< std::vector<double > > &GetData() { return amplitude; }
+        std::vector<double> &GetYvals() { return yvals; }
+        std::vector<double> &GetRvals() { return rvals; }
 
     private:
         // amplitude[i][j] is vector of dipole amplitude values at rapidity yvals[i]

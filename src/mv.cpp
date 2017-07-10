@@ -58,9 +58,9 @@ cout << r<< " " << res << endl;
 	///TODO: some algorithm to determina small r, e.g. when one has to linearize
     if (r < 2e-6)   ///NOTE: factor 1/4 "correctly", not as in AAMS paper
             return std::pow(SQR(r)*qs0sqr, anomalous_dimension)/4.0
-            * std::log( 1.0/(r*std::sqrt(qs0sqr)) + ec*e) ;
+            * std::log( 1.0/(r*lambdaqcd) + ec*e) ;
     return 1.0 - std::exp(-std::pow(SQR(r)*qs0sqr, anomalous_dimension)/4.0
-            * std::log( 1.0/(r*std::sqrt(qs0sqr)) + ec*e) );
+            * std::log( 1.0/(r*lambdaqcd) + ec*e) );
 }
 
 

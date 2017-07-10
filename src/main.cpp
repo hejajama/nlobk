@@ -25,7 +25,7 @@ string version = "0.01-dev";
 using namespace config;
 
 
-std::string NLOBK_CONFIG_STRING();
+
 std::stringstream cmd;
 void SaveData();
 void SigIntHandler(int param);
@@ -52,6 +52,8 @@ int main(int argc, char* argv[])
     for (int i=0; i<argc; i++)
         cmd << argv[i] << " ";
     cout << cmd.str() << endl; cout << "#" << endl;
+    
+    double alphas_scaling = 1;
 
     if (string(argv[1])=="-help")
     {
@@ -80,7 +82,7 @@ int main(int argc, char* argv[])
         cout << "-no_k2: do not include K_2 and K_f" << endl;
         cout << "-ONLY_RESUM_DLOG: only calculate the effect of resummation" << endl;
         cout << "-only_k1fin: include only k1fin contribution from k1"; 
-
+        cout << endl;
         return 0;
     }
     
@@ -103,7 +105,7 @@ int main(int argc, char* argv[])
                 ((MV*)ic)->SetQsqr(StrToReal(argv[i+2]));
                 ((MV*)ic)->SetAnomalousDimension(StrToReal(argv[i+3]));
 				((MV*)ic)->SetE(exp(StrToReal(argv[i+4])));
-                config::ALPHAS_SCALING = 1; // This is set by -alphas_scaling, hopefully
+                alphas_scaling = 1; // This is set by -alphas_scaling, hopefully
             }
             else
             {
@@ -111,64 +113,64 @@ int main(int argc, char* argv[])
                 if (string(argv[i+1])=="mv")
                 {
                     ((MV*)ic)->SetQsqr(0.2);
-                    config::ALPHAS_SCALING=0.315237;
+                    alphas_scaling=0.315237;
                 }
                 else if (string(argv[i+1])=="mv02")
                 {
                     ((MV*)ic)->SetQsqr(0.2);
-                    config::ALPHAS_SCALING = 1;
+                    alphas_scaling = 1;
                 }
                 else if (string(argv[i+1])=="mv1")
                 {
                     ((MV*)ic)->SetQsqr(1);
-                    config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
+                    alphas_scaling = std::exp(-2.0*0.57721);
                 }
                 else if (string(argv[i+1])=="mv10")
                 {
                     ((MV*)ic)->SetQsqr(10);
-                    config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
+                    alphas_scaling = std::exp(-2.0*0.57721);
                 }
                 else if (string(argv[i+1])=="mve")
                 {
                     ((MV*)ic)->SetQsqr(0.06);
                     ((MV*)ic)->SetE(18.9);
-                    config::ALPHAS_SCALING = 7.2;
+                    alphas_scaling = 7.2;
                 }
                 else if (string(argv[i+1])=="mvgamma")
                 {
                     ((MV*)ic)->SetQsqr(0.165);
                     ((MV*)ic)->SetAnomalousDimension(1.135);
-                    config::ALPHAS_SCALING = 6.35;
+                    alphas_scaling = 6.35;
                 }
                 else if (string(argv[i+1])=="mvgamma_08")
                 {
                     ((MV*)ic)->SetQsqr(1);
                     ((MV*)ic)->SetAnomalousDimension(0.8);
-                    config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
+                    alphas_scaling = std::exp(-2.0*0.57721);
                 }
                 else if (string(argv[i+1])=="mvgamma_08_qsqr_100")
                 {   
                     ((MV*)ic)->SetQsqr(100);
                     ((MV*)ic)->SetAnomalousDimension(0.8);
-                    config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
+                    alphas_scaling = std::exp(-2.0*0.57721);
                 }
                 else if (string(argv[i+1])=="mvgamma_09")
                 {
                     ((MV*)ic)->SetQsqr(1);
                     ((MV*)ic)->SetAnomalousDimension(0.9);
-                    config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
+                    alphas_scaling = std::exp(-2.0*0.57721);
                 }
                 else if (string(argv[i+1])=="mvgamma_095")
                 {
                     ((MV*)ic)->SetQsqr(1);
                     ((MV*)ic)->SetAnomalousDimension(0.95);
-                    config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
+                    alphas_scaling = std::exp(-2.0*0.57721);
                 }
                 else if (string(argv[i+1])=="mvgamma_1")
                 {
                     ((MV*)ic)->SetQsqr(1);
                     ((MV*)ic)->SetAnomalousDimension(1.0);
-                    config::ALPHAS_SCALING = std::exp(-2.0*0.57721);
+                    alphas_scaling = std::exp(-2.0*0.57721);
                 }
                 else
                 {
@@ -273,11 +275,11 @@ int main(int argc, char* argv[])
             config::ONLY_NLO = true;
         }
         else if (string(argv[i])=="-alphas_scaling")
-            config::ALPHAS_SCALING = StrToReal(argv[i+1]);
+            alphas_scaling = StrToReal(argv[i+1]);
 		else if (string(argv[i])=="-ln_alphas_scaling")
-			config::ALPHAS_SCALING = exp(StrToReal(argv[i+1]));
+			alphas_scaling = exp(StrToReal(argv[i+1]));
         else if (string(argv[i])=="-ln_alphas_scaling")
-            config::ALPHAS_SCALING = std::exp(StrToReal(argv[i+1]));
+            alphas_scaling = std::exp(StrToReal(argv[i+1]));
         
         else if (string(argv[i])=="-resum_dlog")
             config::RESUM_DLOG = true;
@@ -353,6 +355,7 @@ int main(int argc, char* argv[])
         cout << "# r   dN/dy [K1]   dN/dy [K2]  N" << endl;
 
     BKSolver solver(&dipole);
+    solver.SetAlphasScaling(alphas_scaling);
     solver.SetTmpOutput(output);
     solver.Solve(maxy);
     cout << "BK solved!" << endl;
@@ -382,96 +385,3 @@ void SigIntHandler(int param)
     exit(1);
 }
 
-std::string NLOBK_CONFIG_STRING()
-{
-    std::stringstream ss;
-    ss <<"# Command: " << cmd.str() << endl << "#";
-    
-	ss << "MC integration method: ";
-	if (INTMETHOD_NLO == MISER)
-		ss <<"MonteCarlo Miser, points=" << MCINTPOINTS;
-	else if (INTMETHOD_NLO == VEGAS)
-		ss <<"MonteCarlo Vegas, points=" << MCINTPOINTS;
-	else if (INTMETHOD_NLO == MULTIPLE)
-		ss << "Multiple integrals (no montecarlo)";
-	else
-		ss <<"UNKNOWN!";
-	ss << ". K1 integration accuracy " << INTACCURACY ;
-	ss<< ". LO Kernel RC: ";
-	if (RC_LO == FIXED_LO or EQUATION==CONFORMAL_N4)
-		ss << " fixed as=" << FIXED_AS;
-	else if (RC_LO == SMALLEST_LO)
-		ss << " smallest dipole";
-	else if (RC_LO == BALITSKY_LO)
-		ss << " Balitsky";
-	else if (RC_LO == PARENT_LO)
-		ss << " Parent dipole";
-	else if (RC_LO == PARENT_BETA_LO)
-		ss << " Parent dipole, explicit beta";
-	else
-		ss << " NO STRING IMPLEMENTED!";
-
-	ss<< ". NLO Kernel RC: ";
-	if (RC_NLO == FIXED_NLO or EQUATION==CONFORMAL_N4)
-		ss << " fixed as=" << FIXED_AS;
-	else if (RC_NLO == SMALLEST_NLO)
-		ss << " smallest dipole";
-	else if (RC_NLO  == PARENT_NLO)
-		ss << " Parent dipole";
-	else
-		ss << " NO STRING IMPLEMENTED!";
-
-	ss <<". Nc=" << NC << ", Nf=" << NF;
-
-	if (EQUATION == QCD)
-	{
-		if (DOUBLELOG_LO_KERNEL) ss << ". QCD, Double log term in LO kernel included";
-		else ss << ". QCD, Double log term in LO kernel NOT included";
-	}
-	else if (EQUATION == CONFORMAL_QCD) ss << ". Solving for CONFORMAL dipole";
-	else if (EQUATION == CONFORMAL_N4) ss << ". Solving in N=4 for CONFORMAL dipole";
-	else ss << ". UNKNOWN EQUATION!!";
-
-
-	if (FORCE_POSITIVE_N)
-		ss << ". Amplitude is limited to [0,1].";
-	else
-		ss << ". Amplitude is not limited!";
-
-	ss << " Alphas scaling C^2=" << config::ALPHAS_SCALING ;
-	ss << endl;
-	BKSolver sol;
-	ss << "# Alphas(r=1 GeV^-1) = " << sol.Alphas(1) << endl;
-	ss << "# Order: ";
-	if (LO_BK)
-		ss <<"LO";
-	else
-		ss << "NLO";
-	if (config::ONLY_NLO) ss << ", keeping only NLO terms";
-	if (config::RESUM_DLOG)
-	{
-		ss << endl;
-		ss << "# Resumming double log";
-	}
-	if (config::RESUM_SINGLE_LOG)
-	{
-		ss << endl;
-		ss << "# Resumming single log, K_sub=" << config::KSUB;
-		if (config::RESUM_RC == RESUM_RC_PARENT) ss << " resum rc: parent";
-        else if (config::RESUM_RC == RESUM_RC_SMALLEST) ss << " resum rc: smallest";
-		else if (config::RESUM_RC == RESUM_RC_BALITSKY) ss << " resum rc: balitsky";
-		ss << endl;
-	}
-	
-	if (config::ONLY_SUBTRACTION)
-		ss << endl << "# Only including the subtraction term" << endl;
-
-    if (config::ONLY_K1FIN)
-        ss << endl << "# Only including K1fin part of K1" << endl;
-
-	if (config::NO_K2)
-	{
-		ss << endl << "# Not including K2 and Kf" << endl;
-	}
-    return ss.str();
-}

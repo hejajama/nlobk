@@ -4,6 +4,12 @@
  */
 
 #include "nlobk_config.hpp"
+#include <sstream>
+#include <string>
+
+using namespace std;
+
+using namespace config;
 
 // Default configs
 namespace config
@@ -18,7 +24,7 @@ namespace config
      int THETAINTPOINTS = 85;
      double INTACCURACY=0.005;
      double MCINTACCURACY = 0.2;
-     double MAXR = 80;
+     double MAXR = 10;          // Quite small, only for testing
      double MINR=1e-6;
      unsigned int RPOINTS = 170;
 
@@ -45,8 +51,6 @@ namespace config
 
      bool FORCE_POSITIVE_N = true;
 
-     double ALPHAS_SCALING = 1.0;
-
      bool DNDY=false;
 
      bool ONLY_NLO = false;
@@ -65,7 +69,102 @@ namespace config
      
      double KSUB = 1.0;
      
-     SINGLELOG_RESUM_RC RESUM_RC = RESUM_RC_SMALLEST;
+     SINGLELOG_RESUM_RC RESUM_RC = RESUM_RC_PARENT;
 
      bool ONLY_K1FIN = false;
 }
+
+
+std::string NLOBK_CONFIG_STRING()
+{
+    std::stringstream ss;
+    
+    
+    ss << "MC integration method: ";
+    if (INTMETHOD_NLO == MISER)
+    ss <<"MonteCarlo Miser, points=" << MCINTPOINTS;
+    else if (INTMETHOD_NLO == VEGAS)
+    ss <<"MonteCarlo Vegas, points=" << MCINTPOINTS;
+    else if (INTMETHOD_NLO == MULTIPLE)
+    ss << "Multiple integrals (no montecarlo)";
+    else
+    ss <<"UNKNOWN!";
+    ss << ". K1 integration accuracy " << INTACCURACY ;
+    ss<< ". LO Kernel RC: ";
+    if (RC_LO == FIXED_LO or EQUATION==CONFORMAL_N4)
+    ss << " fixed as=" << FIXED_AS;
+    else if (RC_LO == SMALLEST_LO)
+    ss << " smallest dipole";
+    else if (RC_LO == BALITSKY_LO)
+    ss << " Balitsky";
+    else if (RC_LO == PARENT_LO)
+    ss << " Parent dipole";
+    else if (RC_LO == PARENT_BETA_LO)
+    ss << " Parent dipole, explicit beta";
+    else
+    ss << " NO STRING IMPLEMENTED!";
+    
+    ss<< ". NLO Kernel RC: ";
+    if (RC_NLO == FIXED_NLO or EQUATION==CONFORMAL_N4)
+    ss << " fixed as=" << FIXED_AS;
+    else if (RC_NLO == SMALLEST_NLO)
+    ss << " smallest dipole";
+    else if (RC_NLO  == PARENT_NLO)
+    ss << " Parent dipole";
+    else
+    ss << " NO STRING IMPLEMENTED!";
+    
+    ss <<". Nc=" << NC << ", Nf=" << NF;
+    
+    if (EQUATION == QCD)
+    {
+        if (DOUBLELOG_LO_KERNEL) ss << ". QCD, Double log term in LO kernel included";
+        else ss << ". QCD, Double log term in LO kernel NOT included";
+    }
+    else if (EQUATION == CONFORMAL_QCD) ss << ". Solving for CONFORMAL dipole";
+    else if (EQUATION == CONFORMAL_N4) ss << ". Solving in N=4 for CONFORMAL dipole";
+    else ss << ". UNKNOWN EQUATION!!";
+    
+    
+    if (FORCE_POSITIVE_N)
+    ss << ". Amplitude is limited to [0,1].";
+    else
+    ss << ". Amplitude is not limited!";
+    
+    ss << endl;
+    //BKSolver sol;
+    //ss << "# Alphas(r=1 GeV^-1) = " << sol.Alphas(1) << endl;
+    ss << "# Order: ";
+    if (LO_BK)
+    ss <<"LO";
+    else
+    ss << "NLO";
+    if (config::ONLY_NLO) ss << ", keeping only NLO terms";
+    if (config::RESUM_DLOG)
+    {
+        ss << endl;
+        ss << "# Resumming double log";
+    }
+    if (config::RESUM_SINGLE_LOG)
+    {
+        ss << endl;
+        ss << "# Resumming single log, K_sub=" << config::KSUB;
+        if (config::RESUM_RC == RESUM_RC_PARENT) ss << " resum rc: parent";
+        else if (config::RESUM_RC == RESUM_RC_SMALLEST) ss << " resum rc: smallest";
+        else if (config::RESUM_RC == RESUM_RC_BALITSKY) ss << " resum rc: balitsky";
+        ss << endl;
+    }
+    
+    if (config::ONLY_SUBTRACTION)
+    ss << endl << "# Only including the subtraction term" << endl;
+    
+    if (config::ONLY_K1FIN)
+    ss << endl << "# Only including K1fin part of K1" << endl;
+    
+    if (config::NO_K2)
+    {
+        ss << endl << "# Not including K2 and Kf" << endl;
+    }
+    return ss.str();
+}
+

@@ -12,6 +12,7 @@
 #include <sstream>
 
 
+
 #define LINEINFO __FILE__ << ":" << __LINE__
 inline double SQR(double x) { return x*x; }
 
@@ -85,7 +86,6 @@ namespace config
 
     extern bool FORCE_POSITIVE_N;   // Force N(r)>=0
 
-    extern double ALPHAS_SCALING;   // C^2
 
     extern bool DNDY;   // Print only dn/dy and exit
 
@@ -116,5 +116,6 @@ namespace config
 
     
 }
+std::string NLOBK_CONFIG_STRING();
 
 #endif

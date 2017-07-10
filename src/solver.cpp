@@ -24,6 +24,8 @@
 // Integration constants
 const double eps = 1e-40;
 using namespace config;
+using std::isinf;
+using std::isnan;
 
 BKSolver::BKSolver(Dipole* d)
 {
@@ -37,6 +39,7 @@ struct DEHelper{
 
 BKSolver::BKSolver()
 {
+    alphas_scaling=1.0;
 }
 
 
@@ -380,7 +383,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         result = 
          NC/(2.0*SQR(M_PI))*Alphas(r)
             * (
-            SQR(r) / ( SQR(X) * SQR(Y) )
+            SQR(r) / ( SQR(X) * SQR(Y)  )
             + 1.0/SQR(Y)*(alphas_y/alphas_x - 1.0)
             + 1.0/SQR(X)*(alphas_x/alphas_y - 1.0)
             );
@@ -440,7 +443,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 
     if (config::ONLY_DOUBLELOG)
     {  
-        return resummation_alphas*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
+        return resummation_alphas*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y )
                     * resummation_alphas * NC / (4.0*M_PI)
                     * (- 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) ) ;
     }
@@ -494,6 +497,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     if (config::RESUM_SINGLE_LOG)
     {
         double minxy = std::min(X,Y);
+        if (abs(minxy) < eps) minxy = eps;
         
         double alphabar = resummation_alphas*NC/M_PI;
         const double A1 = 11.0/12.0;
@@ -526,7 +530,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     if (EQUATION==QCD)
     {
         
-if (NO_K2 and (RESUM_DLOG or RESUM_SINGLE_LOG))
+        if (NO_K2 and (RESUM_DLOG or RESUM_SINGLE_LOG))
         {
             // Resummed K_1, no subtraction or other as^2 terms in K_1
             return resum*singlelog_resum*result;
@@ -1207,14 +1211,14 @@ double BKSolver::Alphas(double r)
         return config::FIXED_AS;
     
 	
-	double maxalphas=1.0; // paper: TODO DEBUG0.7;
+	double maxalphas=1.0;
 	if (config::NF > 3)
 	{
 	/* Varying n_f scheme (heavy quarks are included), compute effective Lambda_QCD
      * (such that alphas(r) is continuous), see 1012.4408 sec. 2.2.
      */
      
-        double dipolescale = 4.0*config::ALPHAS_SCALING / (r*r);
+        double dipolescale = 4.0*alphas_scaling/ (r*r);
 		double heavyqmasses[2] = {1.3,4.5};
 		double nf;
         if (dipolescale < SQR(heavyqmasses[0]))
@@ -1246,7 +1250,7 @@ double BKSolver::Alphas(double r)
         else if (nf==3) lqcd=lambda3;
         else
             cerr << "WTF, nf=" << nf <<" at " << LINEINFO << endl;
-		double scalefactor = 4.0*config::ALPHAS_SCALING;
+		double scalefactor = 4.0*alphas_scaling;
 		if (scalefactor/(r*r*lqcd*lqcd) < 1.0) return maxalphas;
 		 double alpha = 4.0*M_PI/(  b0 * std::log(scalefactor/ (r*r*lqcd*lqcd) ) );
 		 if (alpha > maxalphas) return maxalphas; //NOTE HERE b0 definition have factor 3
@@ -1258,7 +1262,7 @@ double BKSolver::Alphas(double r)
 		*/
 	}
 
-	double Csqr=config::ALPHAS_SCALING;
+	double Csqr=alphas_scaling;
 	double scalefactor = 4.0*Csqr;
 	double rsqr = r*r;
 	double lambdaqcd=config::LAMBDAQCD;
