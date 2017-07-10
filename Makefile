@@ -7,6 +7,8 @@ all: rbk
 
 rbk: $(OBJECTS) 
 	g++ $(CXXFLAGS) $(LDFLAGS) $(OBJECTS) ../amplitudelib_v2/amplitudelib2/libamplitude.a -o nlobk 
+tools: tools/nlobklibtest.o $(OBJECTS)
+	${CXX} $(CXXFLAGS) -I src/ $(LDFLAGS) $(OBJECTS)  tools/nlobklibtest.o ../amplitudelib_v2/libamplitude.a -o tools/nlobklibtest
 .cpp.o: 
 	 g++ $(CXXFLAGS) $< -c -o $@
 .c.o:
