@@ -5,7 +5,7 @@ include filelist.m
 
 all: rbk
 
-rbk: $(OBJECTS) 
+rbk: $(OBJECTS) src/main.o 
 	g++ $(CXXFLAGS) $(LDFLAGS) $(OBJECTS) src/main.o ../amplitudelib_v2/libamplitude.a -o nlobk 
 tools: tools/nlobklibtest.o $(OBJECTS)
 	${CXX} $(CXXFLAGS) -I src/ $(LDFLAGS) $(OBJECTS)  tools/nlobklibtest.o ../amplitudelib_v2/libamplitude.a -o tools/nlobklibtest
