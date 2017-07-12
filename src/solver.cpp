@@ -26,6 +26,7 @@ const double eps = 1e-40;
 using namespace config;
 using std::isinf;
 using std::isnan;
+using std::abs;
 
 BKSolver::BKSolver(Dipole* d)
 {
@@ -73,7 +74,7 @@ int BKSolver::Solve(double maxy)
         
     const gsl_odeiv_step_type * T = gsl_odeiv_step_rk2; // rkf45 is more accurate 
     gsl_odeiv_step * s    = gsl_odeiv_step_alloc (T, vecsize);
-    gsl_odeiv_control * c = gsl_odeiv_control_y_new (0.001, INTACCURACY);    //abserr relerr   // paper: 0.0001 
+    gsl_odeiv_control * c = gsl_odeiv_control_y_new (0.00001, INTACCURACY);    //abserr relerr   // paper: 0.0001
     gsl_odeiv_evolve * e  = gsl_odeiv_evolve_alloc (vecsize);
     double h = step;  // Initial ODE solver step size
     
@@ -90,7 +91,7 @@ int BKSolver::Solve(double maxy)
                 << " y=" << y << ", h=" << h << endl;
             }
             //if (std::abs(y - (int)(y+0.5))<0.01)
-                cout << "Evolved up to " << y << "/" << nexty << ", h=" << h << endl;
+                cout << "# Evolved up to " << y << "/" << nexty << ", h=" << h << endl;
         }
 
         // Check ampvec
@@ -139,9 +140,6 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         if (n>1.0) n=1.0;
         if (n<0 and config::FORCE_POSITIVE_N) n=0;
         nvals.push_back(n);
-
-        if (amplitude[i]>0.9999)
-            maxr_interp = dipole->RVal(i);
         
         double s = 1.0-amplitude[i];
         if (s<0) s=0;
@@ -164,11 +162,16 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 
     // mitä jos setmax ja freezaa evoluutio isoilla dipoleilla?
 
-	#pragma omp parallel for
+	#pragma omp parallel for schedule(dynamic)
     for (unsigned int i=0; i< dipole->RPoints(); i+=1)
     {
         //if (dipole->RVal(i) < 0.001)
         //    continue;
+        if (amplitude[i] > 0.99999)
+        {
+            dydt[i]=0;
+            continue;
+        }
         double lo = par->solver->RapidityDerivative_lo(dipole->RVal(i), &interp);
 
         double nlo=0;
@@ -494,10 +497,13 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     // Resum single logs
     double singlelog_resum = 1.0;
     double singlelog_resum_expansion = 0;
+    double minxy = std::min(X,Y);
+    if (std::abs(minxy) < eps) minxy = eps;
+    
     if (config::RESUM_SINGLE_LOG)
     {
-        double minxy = std::min(X,Y);
-        if (abs(minxy) < eps) minxy = eps;
+        
+        
         
         double alphabar = resummation_alphas*NC/M_PI;
         const double A1 = 11.0/12.0;
@@ -1261,7 +1267,7 @@ double BKSolver::Alphas(double r)
 		return 4.0*M_PI / ( b0 * std::log( std::pow( std::pow(mu0, 2.0/c) + std::pow( dipolescale/(lqcd*lqcd), 1.0/c), c) ) );
 		*/
 	}
-
+    
 	double Csqr=alphas_scaling;
 	double scalefactor = 4.0*Csqr;
 	double rsqr = r*r;
@@ -1275,8 +1281,10 @@ double BKSolver::Alphas(double r)
 		std::pow( std::pow(alphas_mu0, 2.0/alphas_freeze_c) + std::pow(4.0*Csqr/(rsqr*lambdaqcd*lambdaqcd), 1.0/alphas_freeze_c), alphas_freeze_c)	
 		) );
     
-
-    /*    
+    /*
+    double scalefactor = 4.0 * alphas_scaling;
+    double rsqr = r*r;
+    double lambdaqcd=config::LAMBDAQCD;
 	if (scalefactor/(rsqr*lambdaqcd*lambdaqcd) < 1.0) return maxalphas;
 	double alpha = 12.0*M_PI/( (11.0*NC-2.0*NF)*std::log(scalefactor/ (rsqr*lambdaqcd*lambdaqcd) ) );
 	if (alpha>maxalphas)
