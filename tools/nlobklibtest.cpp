@@ -52,6 +52,11 @@ int main()
     config::MINR = 1e-5;
     config::MAXR = 20;
     config::RPOINTS = 100;
+    config::DE_SOLVER_STEP = 0.2; // Euler method probably requires smaller step!
+    
+    // If want to use kinematical constraint in the LO equation
+    config::EULER_METHOD = false;        // Kinematical constraint requires this
+    config::KINEMATICAL_CONSTRAINT = true;
     
     // Constants
     config::NF=3;   // Only light quarks

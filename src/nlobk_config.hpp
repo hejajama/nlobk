@@ -113,6 +113,10 @@ namespace config
     extern bool ONLY_SUBTRACTION;	// Calculate only effect from subtraction
 
     extern bool ONLY_K1FIN; // Only K1fin contribution from K_1
+    
+    extern bool KINEMATICAL_CONSTRAINT; // Solve nonlocal kinematically constrained BK (LO part)
+    
+    extern bool EULER_METHOD;    // Use Euler method instead of Runge Kutta, must be true if KINEMATICA_CONSTRAINT is used
 
     
 }

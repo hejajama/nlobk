@@ -80,28 +80,44 @@ int BKSolver::Solve(double maxy)
     
     do
     {
-        double  nexty = y+step;
-        while (y<nexty)
+        if (!EULER_METHOD)
         {
-            int status = gsl_odeiv_evolve_apply(e, c, s, &sys,
-                &y, nexty, &h, ampvec);
-            if (status != GSL_SUCCESS) {
-                cerr << "Error in gsl_odeiv_evolve_apply at " << LINEINFO
-                << ": " << gsl_strerror(status) << " (" << status << ")"
-                << " y=" << y << ", h=" << h << endl;
-            }
-            //if (std::abs(y - (int)(y+0.5))<0.01)
-                cout << "# Evolved up to " << y << "/" << nexty << ", h=" << h << endl;
-        }
-
-        // Check ampvec
-        for (int i=0; i<vecsize; i++)
-        {
-            if (isinf(ampvec[i]) or isnan(ampvec[i]))
+            double  nexty = y+step;
+            while (y<nexty)
             {
-                cerr << "Ampvec[i=" << i<< "]=" << ampvec[i] << " " << LINEINFO << endl;
-                exit(1);
+                int status = gsl_odeiv_evolve_apply(e, c, s, &sys,
+                    &y, nexty, &h, ampvec);
+                if (status != GSL_SUCCESS) {
+                    cerr << "Error in gsl_odeiv_evolve_apply at " << LINEINFO
+                    << ": " << gsl_strerror(status) << " (" << status << ")"
+                    << " y=" << y << ", h=" << h << endl;
+                }
+                //if (std::abs(y - (int)(y+0.5))<0.01)
+                    cout << "# Evolved up to " << y << "/" << nexty << ", h=" << h << endl;
             }
+
+            // Check ampvec
+            for (int i=0; i<vecsize; i++)
+            {
+                if (isinf(ampvec[i]) or isnan(ampvec[i]))
+                {
+                    cerr << "Ampvec[i=" << i<< "]=" << ampvec[i] << " " << LINEINFO << endl;
+                    exit(1);
+                }
+            }
+        }
+        else
+        {
+            // Own implementation of the euler method
+            double *dydt = new double[vecsize];
+            
+            Evolve(y, ampvec, dydt, &help);
+            for (int i=0; i<vecsize; i++)
+            {
+                ampvec[i] = ampvec[i] + step * dydt[i];
+            }
+            y = y + step;
+            delete[] dydt;
         }
 
         yind = dipole->AddRapidity(y, ampvec);
@@ -172,7 +188,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
             dydt[i]=0;
             continue;
         }
-        double lo = par->solver->RapidityDerivative_lo(dipole->RVal(i), &interp);
+        double lo = par->solver->RapidityDerivative_lo(dipole->RVal(i), &interp, y);
 
         double nlo=0;
         if (!LO_BK and !NO_K2)
@@ -223,18 +239,21 @@ struct Inthelper_nlobk
     double theta_z2; // direction of w
     Interpolator* dipole_interp;
     Interpolator* dipole_interp_s;  // interpolates S=1-N
+    double rapidity; // Current rapidity
 };
 
 double Inthelperf_lo_z(double v, void* p);
 double Inthelperf_lo_theta(double theta, void* p);
 
-double BKSolver::RapidityDerivative_lo(double r, Interpolator* dipole_interp)
+// Last argument is optional, and used only with kinematical constraint
+double BKSolver::RapidityDerivative_lo(double r, Interpolator* dipole_interp, double rapidity)
 {
     gsl_function fun;
     Inthelper_nlobk helper;
     helper.solver=this;
     helper.r=r;
     helper.dipole_interp = dipole_interp;
+    helper.rapidity = rapidity;
     
     fun.params = &helper;
     fun.function = Inthelperf_lo_z;
@@ -292,6 +311,7 @@ double Inthelperf_lo_z(double z, void* p)
     return result;
 }
 
+
 double Inthelperf_lo_theta(double theta, void* p)
 {
         //cout << " theta " << theta << endl;
@@ -319,13 +339,30 @@ double Inthelperf_lo_theta(double theta, void* p)
     double N_Y = helper->dipole_interp->Evaluate(Y);
     double N_r = helper->dipole_interp->Evaluate(r);
 
-    //cout << N_X << " " << N_Y << " " << N_r << endl;
-
-    //cout << z << " " << theta << " " << helper->solver->Kernel_lo(r, z, theta) * ( N_X + N_Y - N_r - N_X*N_Y ) << " " << helper->solver->Kernel_lo(r, z, theta)  << " " <<  ( N_X + N_Y - N_r - N_X*N_Y ) <<  endl;
-
-
-    return helper->solver->Kernel_lo(r, z, theta) * ( N_X + N_Y - N_r - N_X*N_Y );
-     
+    if (!KINEMATICAL_CONSTRAINT)
+        return helper->solver->Kernel_lo(r, z, theta) * ( N_X + N_Y - N_r - N_X*N_Y );
+    
+    else
+    {
+        if (!config::EULER_METHOD)
+        {
+            cerr << "Using KinematicalConstraint but not EulerMethod? " << LINEINFO << endl;
+            exit(1);
+        }
+        // Implement kinematical constraint from 1708.06557 Eq. 165
+        double delta012 = std::max(0.0, std::log( std::min(X*X, Y*Y) / r*r ) ); // (166)
+        double shifted_rapidity = helper->rapidity - delta012;
+        if (shifted_rapidity < 0)
+            return 0;   // Step function in (165)
+        
+        // Dipoles at shifter rapidity
+        double s02 = 1.0 - helper->solver->GetDipole()->InterpolateN(X, shifted_rapidity);
+        double s12 = 1.0 - helper->solver->GetDipole()->InterpolateN(Y, shifted_rapidity);
+        double s01 = 1.0 - N_r;
+        
+        return helper->solver->Kernel_lo(r, z, theta) * ( -s02*s12 + s01);
+        
+    }
 }
 
 

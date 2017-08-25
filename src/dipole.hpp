@@ -29,6 +29,9 @@ class Dipole
 
         double N(double r);         // Evaluates the initialized interpolator at r
         double S(double r);         // 1 - N
+    
+        // Interpolate dipole amplitude in 2d, both r and y
+        double InterpolateN(double r, double y);
 
         int AddRapidity(double y, double rgrid[]);
 

@@ -72,6 +72,10 @@ namespace config
      SINGLELOG_RESUM_RC RESUM_RC = RESUM_RC_PARENT;
 
      bool ONLY_K1FIN = false;
+    
+     bool KINEMATICAL_CONSTRAINT = true;
+    
+    bool EULER_METHOD = true;
 }
 
 
@@ -165,6 +169,9 @@ std::string NLOBK_CONFIG_STRING()
     {
         ss << endl << "# Not including K2 and Kf" << endl;
     }
+    
+    if (config::KINEMATICAL_CONSTRAINT)
+        ss << endl << "# Kinematical constraint included" << endl;
     return ss.str();
 }
 

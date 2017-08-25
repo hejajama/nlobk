@@ -11,6 +11,7 @@
 #include <fstream>
 #include <sstream>
 #include <cmath>
+#include <tools/tools.hpp>
 
 using std::cerr; using std::cout; using std::endl;
 using namespace config;
@@ -97,6 +98,74 @@ double Dipole::S(double r)
     if (s<0) return 0;
     if (s>1.0 and config::FORCE_POSITIVE_N) return 1.0;
     return s;
+}
+
+/*
+ * Interpolate dipole amplitude in both r and y
+ *
+ * Currently, we interpolate linearly in y, and use spline in r
+ * We could also use Interpolator2D class, but it requires at least
+ * 4 points also in rapidity, and thus would require more extra care
+ * close to the initial condition
+ */
+double Dipole::InterpolateN(double r, double y)
+{
+    if (y<0) y=0;   // Use initial condition for negative rapidities
+    if (y > yvals[yvals.size()-1])
+    {
+        cerr << "Rapidity " << y << " is larger than current maximum " << yvals[yvals.size()-1] << " " << LINEINFO << endl;
+        exit(1);
+    }
+    
+    int yind = FindIndex(y, yvals);
+    // FindIndex finds largest index such that yvals[yind] <= y
+    if (yind == yvals.size()-1)
+    {
+        // We are asking dipole at the current latest rapidity
+        if (interpolator_yind == yind)
+            return N(r);
+        else
+        {
+            cerr << "InterpolatorN used to interpolate at the current rapidity, really?? " << LINEINFO << endl;
+            exit(1);
+        }
+    }
+    
+    // Now we know that yind and yind+1 are acceptable indeces, so we can interpolate in rapidity linearly
+    // Construct interpolators in r at both rapidities
+    std::vector<double> rvals_lower;
+    std::vector<double> rvals_upper;
+    std::vector<double> nvals_lower;
+    std::vector<double> nvals_upper;
+    
+    int rind = FindIndex(r, rvals);
+    int min_index = std::max(rind-3, 0);
+    if (min_index + 6 > rvals.size())
+    {
+        // So larger, that it is good approximation to say that N=1
+        return 1.0;
+    }
+    
+    for (int i=0; i<6; i++)
+    {
+        rvals_lower.push_back(rvals[min_index+i]);
+        nvals_lower.push_back(amplitude[yind][min_index+i]);
+        rvals_upper.push_back(rvals[min_index+i]);
+        nvals_upper.push_back(amplitude[yind+1][min_index+i]);
+    }
+    Interpolator lower(rvals_lower, nvals_lower);
+    Interpolator upper(rvals_upper, nvals_upper);
+    double n_lower = lower.Evaluate(r);
+    double n_upper = upper.Evaluate(r);
+    
+    // Linear interpolation in y
+    double result =  n_lower + (y - yvals[yind]) / ( yvals[yind+1] - yvals[yind]) * (n_upper - n_lower);
+    
+    // Possible rounding errors
+    if (result > 1.0) return 1.0;
+    if (result < 0) return 0;
+    
+    return result;
 }
 
 /*
