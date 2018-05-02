@@ -73,7 +73,7 @@ namespace config
 
      bool ONLY_K1FIN = false;
     
-     bool KINEMATICAL_CONSTRAINT = true;
+     bool KINEMATICAL_CONSTRAINT = false;
     
     bool EULER_METHOD = true;
 }

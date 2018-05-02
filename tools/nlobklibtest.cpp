@@ -39,7 +39,7 @@ int main()
     
     
     // ***Set other configurations, should not be changed during the fit process***
-    double maxy = 5.2;      // Solve BK up to this rapidity
+    double maxy = 0.8;      // Solve BK up to this rapidity
     
     config::RC_LO = config::BALITSKY_LO; // Balitsky running coupling for LO kernel
     config::RESUM_RC = config::RESUM_RC_PARENT; // Parent dipole in the resummation
@@ -56,7 +56,7 @@ int main()
     
     // If want to use kinematical constraint in the LO equation
     config::EULER_METHOD = false;        // Kinematical constraint requires this
-    config::KINEMATICAL_CONSTRAINT = true;
+    config::KINEMATICAL_CONSTRAINT = false;
     
     // Constants
     config::NF=3;   // Only light quarks
@@ -74,7 +74,6 @@ int main()
     BKSolver solver(&dipole);
     solver.SetAlphasScaling(alphas_scaling);
     solver.Solve(maxy);  // Solve up to maxy
-    
     
     // ***Study solution***
     

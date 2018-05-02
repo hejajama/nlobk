@@ -1,4 +1,4 @@
-CXXFLAGS = `gsl-config --cflags` -O2 -fopenmp -pedantic -I ../amplitudelib_v2/ -I src/
+CXXFLAGS = `gsl-config --cflags` -O2 -fopenmp -pedantic -I ../amplitudelib_v2/amplitudelib2/ -I ../amplitudelib_v2/amplitudelib2/tools/ -I src/
 LDFLAGS = `gsl-config --libs` -lm 
 
 include filelist.m
@@ -6,9 +6,9 @@ include filelist.m
 all: rbk
 
 rbk: $(OBJECTS) src/main.o 
-	g++ $(CXXFLAGS) $(LDFLAGS) $(OBJECTS) src/main.o ../amplitudelib_v2/libamplitude.a -o nlobk 
+	g++ $(CXXFLAGS) $(LDFLAGS) $(OBJECTS) src/main.o ../amplitudelib_v2/amplitudelib2/libamplitude.a -o nlobk 
 tools: tools/nlobklibtest.o $(OBJECTS)
-	${CXX} $(CXXFLAGS) -I src/ $(LDFLAGS) $(OBJECTS)  tools/nlobklibtest.o ../amplitudelib_v2/libamplitude.a -o tools/nlobklibtest
+	${CXX} $(CXXFLAGS) -I src/ $(LDFLAGS) $(OBJECTS)  tools/nlobklibtest.o ../amplitudelib_v2/amplitudelib2/libamplitude.a -o tools/nlobklibtest
 .cpp.o: 
 	 g++ $(CXXFLAGS) $< -c -o $@
 .c.o:

@@ -162,26 +162,21 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         if (s>1 and config::FORCE_POSITIVE_N) s=1.0;
         yvals_s.push_back(s);
     }
-    Interpolator interp(rvals,nvals);
+        // mitä jos setmax ja freezaa evoluutio isoilla dipoleilla?
+
+	cout << "# of iterations: " << dipole->RPoints() << endl;
+	#pragma omp parallel for schedule(dynamic) 
+    for (unsigned int i=0; i< dipole->RPoints(); i+=1)
+    {
+        //if (dipole->RVal(i) < 0.001)
+	Interpolator interp(rvals,nvals);
     interp.Initialize();
     interp.SetFreeze(true);
     interp.SetUnderflow(0);
     interp.SetOverflow(1.0);
     //interp.SetMaxX(maxr_interp);
 
-    Interpolator interp_s(rvals,yvals_s);
-    interp_s.Initialize();
-    interp_s.SetFreeze(true);
-    interp_s.SetUnderflow(1.0);
-    interp_s.SetOverflow(0.0);
-    //interp_s.SetMaxX(maxr_interp);
-
-    // mitä jos setmax ja freezaa evoluutio isoilla dipoleilla?
-
-	#pragma omp parallel for schedule(dynamic)
-    for (unsigned int i=0; i< dipole->RPoints(); i+=1)
-    {
-        //if (dipole->RVal(i) < 0.001)
+    
         //    continue;
         if (amplitude[i] > 0.99999)
         {
@@ -192,8 +187,17 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 
         double nlo=0;
         if (!LO_BK and !NO_K2)
-            nlo = par->solver->RapidityDerivative_nlo(dipole->RVal(i), &interp, &interp_s);
+	{
+ Interpolator interp_s(rvals,yvals_s);
+    interp_s.Initialize();
+    interp_s.SetFreeze(true);
+    interp_s.SetUnderflow(1.0);
+    interp_s.SetOverflow(0.0);
+    //interp_s.SetMaxX(maxr_interp);
 
+
+            nlo = par->solver->RapidityDerivative_nlo(dipole->RVal(i), &interp, &interp_s);
+}
         if (config::DNDY)
         {
             #pragma omp critical

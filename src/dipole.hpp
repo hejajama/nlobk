@@ -9,7 +9,7 @@
 #include "ic.hpp"
 #include "nlobk_config.hpp"
 #include <vector>
-#include <tools/interpolation.hpp>
+#include <interpolation.hpp>
 #include <string>
 
 /*
