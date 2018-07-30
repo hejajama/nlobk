@@ -164,7 +164,6 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
     }
         // mitä jos setmax ja freezaa evoluutio isoilla dipoleilla?
 
-	cout << "# of iterations: " << dipole->RPoints() << endl;
 	#pragma omp parallel for schedule(dynamic) 
     for (unsigned int i=0; i< dipole->RPoints(); i+=1)
     {
@@ -454,6 +453,14 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 		, -1.0);
 		result = result * SQR(r / (X*Y));
 		alphas_scale=r;	// this only affects K1_fin
+	}
+	else if (RC_LO == GUILLAUME_LO)
+	{
+		// 1708.06557 Eq. 169
+		double r_eff_sqr = r*r * std::pow( Y*Y / (X*X), (X*X-Y*Y)/(r*r) );
+		result = NC*Alphas(std::sqrt(r_eff_sqr)) / (2.0*SQR(M_PI)) * SQR(r/(X*Y + 1e-40));
+		alphas_scale = std::sqrt(r_eff_sqr);
+
 	}
     else
     {

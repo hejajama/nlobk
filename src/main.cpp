@@ -226,6 +226,12 @@ int main(int argc, char* argv[])
                 config::RC_NLO = config::PARENT_NLO;
                 config::RESUM_RC = config::RESUM_RC_PARENT;
             }
+			else if (string(argv[i+1])=="guillaume")
+			{
+				config::RC_LO = config::GUILLAUME_LO;
+				config::RC_NLO = config::PARENT_NLO;
+				config::RESUM_RC = config::RESUM_RC_PARENT;
+			}
             else
             {
                 cerr << "Unknown RC " << argv[i+1] << " at " << LINEINFO << endl;
