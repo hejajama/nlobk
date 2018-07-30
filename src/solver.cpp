@@ -118,6 +118,7 @@ int BKSolver::Solve(double maxy)
             }
             y = y + step;
             delete[] dydt;
+			cout << "# Evolved at y=" << y << endl;
         }
 
         yind = dipole->AddRapidity(y, ampvec);
@@ -355,7 +356,7 @@ double Inthelperf_lo_theta(double theta, void* p)
             exit(1);
         }
         // Implement kinematical constraint from 1708.06557 Eq. 165
-        double delta012 = std::max(0.0, std::log( std::min(X*X, Y*Y) / r*r ) ); // (166)
+        double delta012 = std::max(0.0, std::log( std::min(X*X, Y*Y) / (r*r) ) ); // (166)
         double shifted_rapidity = helper->rapidity - delta012;
         if (shifted_rapidity < 0)
             return 0;   // Step function in (165)
@@ -585,6 +586,8 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 
     if (EQUATION==QCD)
     {
+		if (RESUM_DLOG == false and RESUM_SINGLE_LOG==false)
+				return result;
         
         if (NO_K2 and (RESUM_DLOG or RESUM_SINGLE_LOG))
         {
