@@ -39,24 +39,24 @@ int main()
     
     
     // ***Set other configurations, should not be changed during the fit process***
-    double maxy = 0.8;      // Solve BK up to this rapidity
+    double maxy = 20.8;      // Solve BK up to this rapidity
     
-    config::RC_LO = config::BALITSKY_LO; // Balitsky running coupling for LO kernel
+    config::RC_LO = config::PARENT_LO; // Balitsky running coupling for LO kernel
     config::RESUM_RC = config::RESUM_RC_PARENT; // Parent dipole in the resummation
-    config::RESUM_DLOG = true; // Resum doulbe logs
-    config::RESUM_SINGLE_LOG = true; // Resum single logs
+    config::RESUM_DLOG = false; // Resum doulbe logs
+    config::RESUM_SINGLE_LOG = false; // Resum single logs
     config::LO_BK = false;  // Solve LO BK with running coupling, overrides RESUM settings
     config::KSUB = 0.65;  // Optimal value for K_sub
     config::NO_K2 = true;  // Do not include numerically demanding full NLO part
     config::INTACCURACY = 0.02;
     config::MINR = 1e-5;
     config::MAXR = 20;
-    config::RPOINTS = 100;
-    config::DE_SOLVER_STEP = 0.2; // Euler method probably requires smaller step!
+    config::RPOINTS = 80;
+    config::DE_SOLVER_STEP = 0.1; // Euler method probably requires smaller step!
     
     // If want to use kinematical constraint in the LO equation
-    config::EULER_METHOD = false;        // Kinematical constraint requires this
-    config::KINEMATICAL_CONSTRAINT = false;
+    config::EULER_METHOD = true;       // Kinematical constraint requires this
+    config::KINEMATICAL_CONSTRAINT = true;
     
     // Constants
     config::NF=3;   // Only light quarks
@@ -73,7 +73,9 @@ int main()
     
     BKSolver solver(&dipole);
     solver.SetAlphasScaling(alphas_scaling);
-    solver.Solve(maxy);  // Solve up to maxy
+    solver.SetTmpOutput("tmp_output.dat");
+	solver.Solve(maxy);  // Solve up to maxy
+	
     
     // ***Study solution***
     
