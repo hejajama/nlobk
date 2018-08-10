@@ -30,18 +30,18 @@ int main()
     
     // ***Fit parameters***
     // Initial condition
-    double qs0sqr = 0.241*0.241*4;    // Q_s,0^2 at x=0.01 (GeV^2)
+    double qs0sqr = 0.104; //1*4;    // Q_s,0^2 at x=0.01 (GeV^2)
     double e_c = 1.0;
     double anomalous_dimension = 1.0;  // probably want to keep constant
     
     // BK solver
-    double alphas_scaling = exp(-2.0*0.5772);     // C^2 in the expression for alpha_s
+    double alphas_scaling = 14.5 ; // exp(-2.0*0.5772);     // C^2 in the expression for alpha_s
     
     
     // ***Set other configurations, should not be changed during the fit process***
     double maxy = 20.8;      // Solve BK up to this rapidity
     
-    config::RC_LO = config::PARENT_LO; // Balitsky running coupling for LO kernel
+    config::RC_LO = config::BALITSKY_LO; // Balitsky running coupling for LO kernel
     config::RESUM_RC = config::RESUM_RC_PARENT; // Parent dipole in the resummation
     config::RESUM_DLOG = false; // Resum doulbe logs
     config::RESUM_SINGLE_LOG = false; // Resum single logs
@@ -50,10 +50,10 @@ int main()
     config::NO_K2 = true;  // Do not include numerically demanding full NLO part
     config::INTACCURACY = 0.02;
     config::MINR = 1e-5;
-    config::MAXR = 20;
-    config::RPOINTS = 80;
-    config::DE_SOLVER_STEP = 0.1; // Euler method probably requires smaller step!
-    
+    config::MAXR = 25;
+    config::RPOINTS = 100;
+    config::DE_SOLVER_STEP = 0.08; // Euler method probably requires smaller step!
+    //config::DNDY=true; 
     // If want to use kinematical constraint in the LO equation
     config::EULER_METHOD = true;       // Kinematical constraint requires this
     config::KINEMATICAL_CONSTRAINT = true;

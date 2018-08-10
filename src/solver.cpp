@@ -356,7 +356,13 @@ double Inthelperf_lo_theta(double theta, void* p)
             exit(1);
         }
         // Implement kinematical constraint from 1708.06557 Eq. 165
-        double delta012 = std::max(0.0, std::log( std::min(X*X, Y*Y) / (r*r) ) ); // (166)
+       // For one of the Delta parametrizations we need the angle between vecs (x-z) and (y-z), use the law of sines
+         double sin_a = r/X * std::sin(theta);
+        double x_m_z_dot_y_m_z = X*Y* std::cos( std::asin(sin_a));
+
+        //double delta012 = std::max(0.0, std::log( std::min(X*X, Y*Y) / (r*r) ) ); // (166)
+		double delta012 = std::max(0.0, std::log( std::abs(x_m_z_dot_y_m_z)/(r*r)) ); 
+		
         double shifted_rapidity = helper->rapidity - delta012;
         if (shifted_rapidity < 0)
             return 0;   // Step function in (165)
@@ -365,6 +371,10 @@ double Inthelperf_lo_theta(double theta, void* p)
         double s02 = 1.0 - helper->solver->GetDipole()->InterpolateN(X, shifted_rapidity);
         double s12 = 1.0 - helper->solver->GetDipole()->InterpolateN(Y, shifted_rapidity);
         double s01 = 1.0 - N_r;
+
+
+//		if (-s02*s12 + s01 < 0 and r>0.1)
+//			cout << "Dipole part " << -s02*s12 + s01 << " at r " << r << " shifter rapidity " << shifted_rapidity << " rapidity " << helper->rapidity << " kernel " << helper->solver->Kernel_lo(r, z, theta) << " s012 " << -s02*s12 << " s01 " << s01 <<   endl;
         
         return helper->solver->Kernel_lo(r, z, theta) * ( -s02*s12 + s01);
         
@@ -415,7 +425,9 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 
     double min = std::min(X, Y);
     if (r < min)
-        min=r;
+{
+       min=r;
+}
 
     double alphas_scale = 0;
 
