@@ -25,8 +25,8 @@ namespace config
      double INTACCURACY=0.001;
      double MCINTACCURACY = 0.2;
      double MAXR = 30;          // Quite small, only for testing
-     double MINR=1e-6;
-     unsigned int RPOINTS = 200;
+     double MINR=1e-4;
+     unsigned int RPOINTS = 70;
 
      size_t MCINTPOINTS = 1e7;
 

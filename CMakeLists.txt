@@ -13,6 +13,9 @@ get_git_head_revision(GIT_REFSPEC GIT_SHA1)
 git_describe(GIT_DESCRIBE)
 git_local_changes(GIT_LOCAL_CHANGES)
 
+
+find_package(GSL REQUIRED)
+
 find_package(OpenMP)
 if (OPENMP_FOUND)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
