@@ -21,6 +21,7 @@
 #include <gsl/gsl_monte_plain.h>
 #include <gsl/gsl_errno.h>
 
+#include <iomanip> // new
 #include <iostream> // new
 #include <complex> // new
 using namespace std::complex_literals; // new
@@ -180,18 +181,21 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         interp.SetUnderflow(0);
         interp.SetOverflow(1.0);
         //interp.SetMaxX(maxr_interp);
-        
-        if (dipole->RVal(i)<0.01) continue;
-        
-        
-        
-        //if (dipole->RVal(i) < 0.001)
-        //    continue;
-        if (amplitude[i] > 0.99999)
-        {
-            dydt[i]=0;
+    
+        //if (dipole->RVal(i) < config::MINR*10) continue;
+         
+        if (dipole->RVal(i) < 0.01)
             continue;
-        }
+        
+        //if (amplitude[i] > 0.99999)
+        //{
+        //    dydt[i]=0;
+        //    continue;
+        //}
+        
+    if (i % 3 != 0)
+        continue;
+        
         double lo = par->solver->RapidityDerivative_lo(dipole->RVal(i), &interp, y);
 
         double nlo=0;
@@ -210,6 +214,11 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         {
             #pragma omp critical
                 cout << dipole->RVal(i) << " " << lo << " " << nlo << " " << amplitude[i] << endl;
+            
+//            if (abs(nlo) > 1.)
+//            {
+//                cout << "# Large NLO value:" << nlo << " " << dipole->RVal(i) << endl;
+//            }
         }
         dydt[i]= lo + nlo;
 		if (isnan(dydt[i]) or isinf(dydt[i]))
@@ -352,8 +361,36 @@ double Inthelperf_lo_theta(double theta, void* p)
     double N_r = helper->dipole_interp->Evaluate(r);
 
     if (!KINEMATICAL_CONSTRAINT)
-        return helper->solver->Kernel_lo(r, z, theta) * ( N_X + N_Y - N_r - N_X*N_Y );
+    {
+        double DA = SQR(NC)-1.;
+        double CF = (SQR(NC)-1.)/(2.*NC);
+        double CD = (SQR(NC)-4.)/NC;
+        
+        double sx = 1. - N_X;
+        double sy = 1. - N_Y;
+        double sr = 1. - N_r;
+        
+        if (sx < 0)
+            sx = 0.;
+        if (sy < 0)
+            sy = 0.;
+        if (sr < 0)
+            sr = 0.;
+        
+        double g_X = -1./CF * std::log(sx); // y2,y3
+        double g_Y = -1./CF * std::log(sy); // x3,y3
+        double g_r = -1./CF * std::log(sr); // x3,y2
+        
+        if (isinf(g_X) or isnan(g_X) or isinf(g_Y) or isnan(g_Y) or isinf(g_r) or isnan(g_r))
+            return 0;
+        
+        double fourpt = DA * std::exp(1./(2.*NC)*g_r) * std::exp(-NC/2.*(g_X+g_Y)) + std::exp(-CF*g_r);
+        
+        double lo_largenc = helper->solver->Kernel_lo(r, z, theta) * ( N_X + N_Y - N_r - N_X*N_Y );
+        double lo_finitenc = helper->solver->Kernel_lo(r, z, theta) * ( - 1./(NC*NC)*fourpt + sr);
     
+        return lo_finitenc;
+    }
     else
     {
         if (!config::EULER_METHOD)
@@ -362,8 +399,8 @@ double Inthelperf_lo_theta(double theta, void* p)
             exit(1);
         }
         // Implement kinematical constraint from 1708.06557 Eq. 165
-       // For one of the Delta parametrizations we need the angle between vecs (x-z) and (y-z), use the law of sines
-         double sin_a = r/X * std::sin(theta);
+        // For one of the Delta parametrizations we need the angle between vecs (x-z) and (y-z), use the law of sines
+        double sin_a = r/X * std::sin(theta);
         double x_m_z_dot_y_m_z = X*Y* std::cos( std::asin(sin_a));
 
         //double delta012 = std::max(0.0, std::log( std::min(X*X, Y*Y) / (r*r) ) ); // (166)
@@ -918,7 +955,11 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
     // z - z'
     double z_m_z2 = std::sqrt( z*z + z2*z2 - 2.0*z*z2*std::cos(theta_z - theta_z2) );
 
-    
+   
+//jdouble rbound = 2.0*config::MINR;  // my minr=1e-4
+  //   if (X < rbound || X2 < rbound || Y < rbound || Y2 < rbound || r < rbound || z_m_z2 < rbound)
+  //        return 0;
+ 
     double result=0;
 
     if (EQUATION == QCD)
@@ -954,7 +995,8 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
         
         
 
-       // Heikki start
+// Heikki start --------------------------------------------------
+        
 //        double dipole = -( dipole_interp_s->Evaluate(X)*dipole_interp_s->Evaluate(z_m_z2)*dipole_interp_s->Evaluate(Y2)
 //                                - dipole_interp_s->Evaluate(X)*dipole_interp_s->Evaluate(Y)  );
 //        double dipole_swap = -( dipole_interp_s->Evaluate(X2)*dipole_interp_s->Evaluate(z_m_z2)*dipole_interp_s->Evaluate(Y)
@@ -962,9 +1004,10 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
 //
 //        //result = k*dipole;
 //        result = (k*dipole + kswap*dipole_swap)/2.0;
-        // Heikki end
+
+// Heikki end --------------------------------------------------
         
-        // Heikki 2 start
+// Heikki 2 start --------------------------------------------------
 //        double sx =dipole_interp_s->Evaluate(X);
 //        double sy = dipole_interp_s->Evaluate(Y);
 //        //double sx2 = dipole_interp_s->Evaluate(X2);
@@ -988,38 +1031,84 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
 //        // At large Nc, both dipoles are then identical
 //
 //        result = (kernel_1*dipole_1 + kernel_2*dipole_2)/2.0; // Divided by 2, as at the end of this function we divide by 8pi^4, but the actual prefactor is 16pi^4
-        // Heikki 2 end
+
+// Heikki 2 end --------------------------------------------------
         
         
         
         
         
-        // Andy Start
+// Andy start --------------------------------------------------
+        
+        
+        
+        
+        
+        double myeps = 0.;
+        double DA = SQR(NC)-1.;
         double CF = (SQR(NC)-1.)/(2.*NC);
-        double eps = std::pow(10.,-12.);
+        double CD = (SQR(NC)-4.)/NC;
+        
+        
+        
+        // Dipoles --------------------
+        double sx = dipole_interp_s->Evaluate(X);
+        double sx2 = dipole_interp_s->Evaluate(X2);
+        double sy = dipole_interp_s->Evaluate(Y);
+        double sy2 = dipole_interp_s->Evaluate(Y2);
+        double sr = dipole_interp_s->Evaluate(r);
+        double szz = dipole_interp_s->Evaluate(z_m_z2);
 
-        double g_X = -1./CF * std::log(dipole_interp_s->Evaluate(X)+eps); // y2,y3
-        double g_X2 = -1./CF * std::log(dipole_interp_s->Evaluate(X2)+eps); // x2,y2
-        double g_Y = -1./CF * std::log(dipole_interp_s->Evaluate(Y)+eps); // x3,y3
-        double g_Y2 = -1./CF * std::log(dipole_interp_s->Evaluate(Y2)+eps); // x2,x3
-        double g_r = -1./CF * std::log(dipole_interp_s->Evaluate(r)+eps); // x3,y2
-        double g_z_m_z2 = -1./CF * std::log(dipole_interp_s->Evaluate(z_m_z2)+eps); // x2,y3
+        if (sx < 0)
+            sx = 0.;
+        if (sx2 < 0)
+            sx2 = 0.;
+        if (sy < 0)
+            sy = 0.;
+        if (sy2 < 0)
+            sy2 = 0.;
+        if (sr < 0)
+            sr = 0.;
+        if (szz < 0)
+            szz = 0.;
+        // --------------------
+        
+        
+        
+        // Gammas --------------------
+        double g_X = -1./CF * std::log(sx + myeps);
+        double g_X2 = -1./CF * std::log(sx2 + myeps);
+        double g_Y = -1./CF * std::log(sy + myeps);
+        double g_Y2 = -1./CF * std::log(sy2 + myeps);
+        
+        double g_r = -1./CF * std::log(sr + myeps);
+        double g_zz = -1./CF * std::log(szz + myeps); 
 
-        double gamma0 = NC * g_z_m_z2 + CF * g_r;
-        double gamma1 = g_Y2 + g_X2 + 2. * g_z_m_z2 - 2./SQR(NC) * g_r + g_Y + g_X;
-        double gamma2 = g_Y2 - g_X2 - g_Y + g_X;
-
-        double myY = 16. * SQR(gamma0) - 8. * NC * gamma0 * gamma1 + SQR(NC) * SQR(gamma1);
-        double myX = 4. * SQR(-4.*gamma0 + NC*gamma1) * SQR(myY - 9.*(SQR(NC)-8.)*SQR(gamma2)) - 4. * std::pow((myY+3.*(SQR(NC)+4.)*SQR(gamma2)), 3.);
-        std::complex<double> myZ = std::pow(std::sqrt(std::complex<double>(myX,0))/2. - (4.*gamma0-NC*gamma1) * (myY-9.*(SQR(NC)-8.)*SQR(gamma2)), 1./3.);
-
+        if (isinf(g_X) or isnan(g_X) or isinf(g_X2) or isnan(g_X2) or isinf(g_Y) or isnan(g_Y) or isinf(g_Y2) or isnan(g_Y2) or isinf(g_r) or isnan(g_r) or isinf(g_zz) or isnan(g_zz))
+            return 0;
+        // --------------------
+        
+        
+        // Functions of gammas --------------------
+        double gamma0 = NC * g_zz + CF * g_r;
+        double gamma1 = g_Y2 + g_X2 + 2. * g_zz - 2./SQR(NC) * g_r + g_Y + g_X;
+        //double gamma2 = g_Y2 - g_X2 - g_Y + g_X;
+        double gamma2 = g_X2 - g_Y2 - g_X + g_Y;
+        
+        double myY = SQR(NC * gamma1 - 4. * gamma0);
+        double myX = 4. * myY * SQR(myY - 9.*(SQR(NC)-8.)*SQR(gamma2)) - 4. * std::pow((myY+3.*(SQR(NC)+4.)*SQR(gamma2)), 3.);
+        std::complex<double> myZ = std::pow(std::sqrt(std::complex<double>(myX,0.))/2. - (4.*gamma0-NC*gamma1) * (myY-9.*(SQR(NC)-8.)*SQR(gamma2)), 1./3.);
+        
+        if (myX >= 0)
+            myZ = {myZ.real(),0.};
+        
         std::complex<double> z1 = (myZ - 2. * (2.*gamma0 + NC*gamma1) + (myY + 3.*(SQR(NC)+4.)*SQR(gamma2))/myZ)/3.;
         std::complex<double> z2 = (2i * (1i+std::sqrt(3.)) * myZ - 8. * (2.*gamma0+NC*gamma1) - 2i/myZ * (-1i+std::sqrt(3.)) * (myY+3.*(4.+SQR(NC))*SQR(gamma2)))/12.;
         std::complex<double> z3 = (-2i * (-1i+std::sqrt(3.)) * myZ - 8. * (2.*gamma0+NC*gamma1) + 2i/myZ * (1i+std::sqrt(3.)) * (myY+3.*(4.+SQR(NC))*SQR(gamma2)))/12.;
 
-        std::complex<double> d_z1 = 8.*NC*gamma0*gamma1 + SQR(NC)*SQR(gamma1) - 8.*SQR(gamma2) - (SQR(NC)-4.)*SQR(gamma2) + 8.*gamma0*z1 + 4.*NC*gamma1*z1 + 3.*std::pow(std::complex<double>(z1),2.);
-        std::complex<double> d_z2 = 8.*NC*gamma0*gamma1 + SQR(NC)*SQR(gamma1) - 8.*SQR(gamma2) - (SQR(NC)-4.)*SQR(gamma2) + 8.*gamma0*z2 + 4.*NC*gamma1*z2 + 3.*std::pow(std::complex<double>(z2),2.);
-        std::complex<double> d_z3 = 8.*NC*gamma0*gamma1 + SQR(NC)*SQR(gamma1) - 8.*SQR(gamma2) - (SQR(NC)-4.)*SQR(gamma2) + 8.*gamma0*z3 + 4.*NC*gamma1*z3 + 3.*std::pow(std::complex<double>(z3),2.);
+        std::complex<double> d_z1 = 8.*NC*gamma0*gamma1 + SQR(NC)*SQR(gamma1) - 8.*SQR(gamma2) - CD*NC*SQR(gamma2) + 8.*gamma0*z1 + 4.*NC*gamma1*z1 + 3.*std::pow(std::complex<double>(z1),2.);
+        std::complex<double> d_z2 = 8.*NC*gamma0*gamma1 + SQR(NC)*SQR(gamma1) - 8.*SQR(gamma2) - CD*NC*SQR(gamma2) + 8.*gamma0*z2 + 4.*NC*gamma1*z2 + 3.*std::pow(std::complex<double>(z2),2.);
+        std::complex<double> d_z3 = 8.*NC*gamma0*gamma1 + SQR(NC)*SQR(gamma1) - 8.*SQR(gamma2) - CD*NC*SQR(gamma2) + 8.*gamma0*z3 + 4.*NC*gamma1*z3 + 3.*std::pow(std::complex<double>(z3),2.);
 
         std::complex<double> m11_z1 = std::exp(z1/4.) * (4.*NC*gamma0*gamma1 - 8.*SQR(gamma2) + (4.*gamma0+NC*gamma1)*z1 + std::pow(std::complex<double>(z1),2.));
         std::complex<double> m11_z2 = std::exp(z2/4.) * (4.*NC*gamma0*gamma1 - 8.*SQR(gamma2) + (4.*gamma0+NC*gamma1)*z2 + std::pow(std::complex<double>(z2),2.));
@@ -1041,120 +1130,116 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
         std::complex<double> m23_z2 = std::exp(z2/4.) * (NC*gamma1 + z2);
         std::complex<double> m23_z3 = std::exp(z3/4.) * (NC*gamma1 + z3);
 
-        std::complex<double> m33_z1 = std::exp(z1/4.) * (SQR(NC)*SQR(gamma1) - (SQR(NC)-4.)*SQR(gamma2) + 2.*NC*gamma1*z1 + std::pow(std::complex<double>(z1),2.));
-        std::complex<double> m33_z2 = std::exp(z2/4.) * (SQR(NC)*SQR(gamma1) - (SQR(NC)-4.)*SQR(gamma2) + 2.*NC*gamma1*z2 + std::pow(std::complex<double>(z2),2.));
-        std::complex<double> m33_z3 = std::exp(z3/4.) * (SQR(NC)*SQR(gamma1) - (SQR(NC)-4.)*SQR(gamma2) + 2.*NC*gamma1*z3 + std::pow(std::complex<double>(z3),2.));
+        std::complex<double> m33_z1 = std::exp(z1/4.) * (SQR(NC)*SQR(gamma1) - CD*NC*SQR(gamma2) + 2.*NC*gamma1*z1 + std::pow(std::complex<double>(z1),2.));
+        std::complex<double> m33_z2 = std::exp(z2/4.) * (SQR(NC)*SQR(gamma1) - CD*NC*SQR(gamma2) + 2.*NC*gamma1*z2 + std::pow(std::complex<double>(z2),2.));
+        std::complex<double> m33_z3 = std::exp(z3/4.) * (SQR(NC)*SQR(gamma1) - CD*NC*SQR(gamma2) + 2.*NC*gamma1*z3 + std::pow(std::complex<double>(z3),2.));
 
         std::complex<double> a11 = m11_z1/d_z1 + m11_z2/d_z2 + m11_z3/d_z3;
-        std::complex<double> a12 = -std::sqrt(SQR(NC)-4.) * gamma2 * (m12_z1/d_z1 + m12_z2/d_z2 + m12_z3/d_z3);
-        std::complex<double> a13 = -2. * std::sqrt(2.*(SQR(NC)-4.)) * SQR(gamma2) * (m13_z1/d_z1 + m13_z2/d_z2 + m13_z3/d_z3);
+        std::complex<double> a12 = -std::sqrt(CD*NC) * gamma2 * (m12_z1/d_z1 + m12_z2/d_z2 + m12_z3/d_z3);
+        std::complex<double> a13 = -2. * std::sqrt(2.*CD*NC) * SQR(gamma2) * (m13_z1/d_z1 + m13_z2/d_z2 + m13_z3/d_z3);
         std::complex<double> a22 = m22_z1/d_z1 + m22_z2/d_z2 + m22_z3/d_z3;
         std::complex<double> a23 = 2.*gamma2* std::sqrt(2.) * (m23_z1/d_z1 + m23_z2/d_z2 + m23_z3/d_z3);
         std::complex<double> a33 = m33_z1/d_z1 + m33_z2/d_z2 + m33_z3/d_z3;
+        
+        if (gamma2 == 0.)
+        {
+            a11 = std::exp(-NC*gamma1/4.);
+            a12 = 0.;
+            a13 = 0.;
+            a22 = std::exp(-NC*gamma1/4.);
+            a23 = 0.;
+            a33 = std::exp(-gamma0);
+        }
+        // --------------------
+        
+        
 
-        std::complex<double> dip3 = 1./NC * std::exp(-(SQR(NC)-1.)/(2.*NC) * g_r) + (SQR(NC)-1.)/NC * std::exp(1./(2.*NC)*g_r) * (std::exp(-NC/2.*(g_X+g_Y)) + std::exp(-NC/2.*(g_X2+g_Y2))) + (SQR(NC)-1.) * (SQR(NC)-4.)/(2.*NC) * a11 - (SQR(NC)-1.) * std::sqrt(SQR(NC)-4.) * a12 + NC * (SQR(NC)-1.)/2. * a22 - 2. * (SQR(NC)-1.) * std::sqrt((SQR(NC)-4.)/(2.*SQR(NC))) * a13 + std::sqrt(2.) * (SQR(NC)-1.) * a23 + (SQR(NC)-1.)/NC * a33;
-        std::complex<double> sext = 1./NC * std::exp(-(SQR(NC)-1.)/(2.*NC) * g_r) + (SQR(NC)-1.)/NC * std::exp(1./(2.*NC)*g_r) * (std::exp(-NC/2.*(g_X+g_Y)) + std::exp(-NC/2.*(g_X2+g_Y2))) + (SQR(NC)-1.) * (SQR(NC)-4.)/(2.*NC) * a11 - NC * (SQR(NC)-1.)/2. * a22 - 2. * (SQR(NC)-1.) * std::sqrt((SQR(NC)-4.)/(2.*SQR(NC))) * a13 + (SQR(NC)-1.)/NC * a33;
+        // NLO BK pieces --------------------
+        std::complex<double> dip3 = 1./NC * std::exp(-CF*g_r) + DA/NC * std::exp(1./(2.*NC)*g_r) * (std::exp(-NC/2.*(g_X+g_Y)) + std::exp(-NC/2.*(g_X2+g_Y2))) + DA*CD/2. * a11 - DA * std::sqrt(CD*NC) * a12 + NC*DA/2. * a22 - 2.*DA * std::sqrt(CD/(2.*NC)) * a13 + std::sqrt(2.)*DA * a23 + DA/NC * a33;
         
+        std::complex<double> sext = 1./NC * std::exp(-CF*g_r) + DA/NC * std::exp(1./(2.*NC)*g_r) * (std::exp(-NC/2.*(g_X+g_Y)) + std::exp(-NC/2.*(g_X2+g_Y2))) + DA*CD/2. * a11 - NC*DA/2. * a22 - 2.*DA * std::sqrt(CD/(2.*NC)) * a13 + DA/NC * a33;
         
+        std::complex<double> cor_diff = - DA * std::sqrt(CD*NC) * a12 + NC*DA * a22 + std::sqrt(2.) * DA * a23;
         
-//        double gamma2_swap = -gamma2;
-//
-//        double myX_swap = 4. * SQR(-4.*gamma0 + NC*gamma1) * SQR(myY - 9.*(SQR(NC)-8.)*SQR(gamma2_swap)) - 4. * std::pow((myY+3.*(SQR(NC)+4.)*SQR(gamma2_swap)), 3.);
-//        std::complex<double> myZ_swap = std::pow(std::sqrt(std::complex<double>(myX_swap,0))/2. - (4.*gamma0-NC*gamma1) * (myY-9.*(SQR(NC)-8.)*SQR(gamma2_swap)), 1./3.);
-//
-//        std::complex<double> z1_swap = (myZ_swap - 2. * (2.*gamma0 + NC*gamma1) + (myY + 3.*(SQR(NC)+4.)*SQR(gamma2_swap))/myZ_swap)/3.;
-//        std::complex<double> z2_swap = (2i * (1i+std::sqrt(3.)) * myZ_swap - 8. * (2.*gamma0+NC*gamma1) - 2i/myZ_swap * (-1i+std::sqrt(3.)) * (myY+3.*(4.+SQR(NC))*SQR(gamma2_swap)))/12.;
-//        std::complex<double> z3_swap = (-2i * (-1i+std::sqrt(3.)) * myZ_swap - 8. * (2.*gamma0+NC*gamma1) + 2i/myZ_swap * (1i+std::sqrt(3.)) * (myY+3.*(4.+SQR(NC))*SQR(gamma2_swap)))/12.;
-//
-//        std::complex<double> d_z1_swap = 8.*NC*gamma0*gamma1 + SQR(NC)*SQR(gamma1) - 8.*SQR(gamma2_swap) - (SQR(NC)-4.)*SQR(gamma2_swap) + 8.*gamma0*z1_swap + 4.*NC*gamma1*z1_swap + 3.*std::pow(std::complex<double>(z1_swap),2.);
-//        std::complex<double> d_z2_swap = 8.*NC*gamma0*gamma1 + SQR(NC)*SQR(gamma1) - 8.*SQR(gamma2_swap) - (SQR(NC)-4.)*SQR(gamma2_swap) + 8.*gamma0*z2_swap + 4.*NC*gamma1*z2_swap + 3.*std::pow(std::complex<double>(z2_swap),2.);
-//        std::complex<double> d_z3_swap = 8.*NC*gamma0*gamma1 + SQR(NC)*SQR(gamma1) - 8.*SQR(gamma2_swap) - (SQR(NC)-4.)*SQR(gamma2_swap) + 8.*gamma0*z3_swap + 4.*NC*gamma1*z3_swap + 3.*std::pow(std::complex<double>(z3_swap),2.);
-//
-//        std::complex<double> m11_z1_swap = std::exp(z1_swap/4.) * (4.*NC*gamma0*gamma1 - 8.*SQR(gamma2_swap) + (4.*gamma0+NC*gamma1)*z1_swap + std::pow(std::complex<double>(z1_swap),2.));
-//        std::complex<double> m11_z2_swap = std::exp(z2_swap/4.) * (4.*NC*gamma0*gamma1 - 8.*SQR(gamma2_swap) + (4.*gamma0+NC*gamma1)*z2_swap + std::pow(std::complex<double>(z2_swap),2.));
-//        std::complex<double> m11_z3_swap = std::exp(z3_swap/4.) * (4.*NC*gamma0*gamma1 - 8.*SQR(gamma2_swap) + (4.*gamma0+NC*gamma1)*z3_swap + std::pow(std::complex<double>(z3_swap),2.));
-//
-//        std::complex<double> m12_z1_swap = std::exp(z1_swap/4.) * (4.*gamma0 + z1_swap);
-//        std::complex<double> m12_z2_swap = std::exp(z2_swap/4.) * (4.*gamma0 + z2_swap);
-//        std::complex<double> m12_z3_swap = std::exp(z3_swap/4.) * (4.*gamma0 + z3_swap);
-//
-//        std::complex<double> m13_z1_swap = std::exp(z1_swap/4.);
-//        std::complex<double> m13_z2_swap = std::exp(z2_swap/4.);
-//        std::complex<double> m13_z3_swap = std::exp(z3_swap/4.);
-//
-//        std::complex<double> m22_z1_swap = std::exp(z1_swap/4.) * (4.*NC*gamma0*gamma1 + (4.*gamma0 + NC*gamma1)*z1_swap + std::pow(std::complex<double>(z1_swap),2.));
-//        std::complex<double> m22_z2_swap = std::exp(z2_swap/4.) * (4.*NC*gamma0*gamma1 + (4.*gamma0 + NC*gamma1)*z2_swap + std::pow(std::complex<double>(z2_swap),2.));
-//        std::complex<double> m22_z3_swap = std::exp(z3_swap/4.) * (4.*NC*gamma0*gamma1 + (4.*gamma0 + NC*gamma1)*z3_swap + std::pow(std::complex<double>(z3_swap),2.));
-//
-//        std::complex<double> m23_z1_swap = std::exp(z1_swap/4.) * (NC*gamma1 + z1_swap);
-//        std::complex<double> m23_z2_swap = std::exp(z2_swap/4.) * (NC*gamma1 + z2_swap);
-//        std::complex<double> m23_z3_swap = std::exp(z3_swap/4.) * (NC*gamma1 + z3_swap);
-//
-//        std::complex<double> m33_z1_swap = std::exp(z1_swap/4.) * (SQR(NC)*SQR(gamma1) - (SQR(NC)-4.)*SQR(gamma2_swap) + 2.*NC*gamma1*z1_swap + std::pow(std::complex<double>(z1_swap),2.));
-//        std::complex<double> m33_z2_swap = std::exp(z2_swap/4.) * (SQR(NC)*SQR(gamma1) - (SQR(NC)-4.)*SQR(gamma2_swap) + 2.*NC*gamma1*z2_swap + std::pow(std::complex<double>(z2_swap),2.));
-//        std::complex<double> m33_z3_swap = std::exp(z3_swap/4.) * (SQR(NC)*SQR(gamma1) - (SQR(NC)-4.)*SQR(gamma2_swap) + 2.*NC*gamma1*z3_swap + std::pow(std::complex<double>(z3_swap),2.));
-//
-//        std::complex<double> a11_swap = m11_z1_swap/d_z1_swap + m11_z2_swap/d_z2_swap + m11_z3_swap/d_z3_swap;
-//        std::complex<double> a12_swap = -std::sqrt(SQR(NC)-4.) * gamma2_swap * (m12_z1_swap/d_z1_swap + m12_z2_swap/d_z2_swap + m12_z3_swap/d_z3_swap);
-//        std::complex<double> a13_swap = -2. * std::sqrt(2.*(SQR(NC)-4.)) * SQR(gamma2_swap) * (m13_z1_swap/d_z1_swap + m13_z2_swap/d_z2_swap + m13_z3_swap/d_z3_swap);
-//        std::complex<double> a22_swap = m22_z1_swap/d_z1_swap + m22_z2_swap/d_z2_swap + m22_z3_swap/d_z3_swap;
-//        std::complex<double> a23_swap = 2.*gamma2_swap* std::sqrt(2.) * (m23_z1_swap/d_z1_swap + m23_z2_swap/d_z2_swap + m23_z3_swap/d_z3_swap);
-//        std::complex<double> a33_swap = m33_z1_swap/d_z1_swap + m33_z2_swap/d_z2_swap + m33_z3_swap/d_z3_swap;
-//
-//        std::complex<double> dip3_swap = 1./NC * std::exp(-(SQR(NC)-1.)/(2.*NC) * g_r) + (SQR(NC)-1.)/NC * std::exp(1./(2.*NC)*g_r) * (std::exp(-NC/2.*(g_X+g_Y)) + std::exp(-NC/2.*(g_X2+g_Y2))) + (SQR(NC)-1.) * (SQR(NC)-4.)/(2.*NC) * a11_swap - (SQR(NC)-1.) * std::sqrt(SQR(NC)-4.) * a12_swap + NC * (SQR(NC)-1.)/2. * a22_swap - 2. * (SQR(NC)-1.) * std::sqrt((SQR(NC)-4.)/(2.*SQR(NC))) * a13_swap + std::sqrt(2.) * (SQR(NC)-1.) * a23_swap + (SQR(NC)-1.)/NC * a33_swap;
-//        std::complex<double> sext_swap = 1./NC * std::exp(-(SQR(NC)-1.)/(2.*NC) * g_r) + (SQR(NC)-1.)/NC * std::exp(1./(2.*NC)*g_r) * (std::exp(-NC/2.*(g_X+g_Y)) + std::exp(-NC/2.*(g_X2+g_Y2))) + (SQR(NC)-1.) * (SQR(NC)-4.)/(2.*NC) * a11_swap - NC * (SQR(NC)-1.)/2. * a22_swap - 2. * (SQR(NC)-1.) * std::sqrt((SQR(NC)-4.)/(2.*SQR(NC))) * a13_swap + (SQR(NC)-1.)/NC * a33_swap;
+        double fourpt = DA * std::exp(1./(2.*NC)*g_r) * std::exp(-NC/2.*(g_X+g_Y)) + std::exp(-CF*g_r);
+        
+        double dip3_re = dip3.real();
+        double sext_re = sext.real();
+        
+        double kernel_1 = -4. / pow(z_m_z2,4)
+        + (2.*(X*X*Y2*Y2 + X2*X2*Y*Y - 4.*r*r*z_m_z2*z_m_z2) / (pow(z_m_z2,4) * (X*X*Y2*Y2 - X2*X2*Y*Y))
+           + pow(r,4)/(X*X*Y2*Y2 - X2*X2*Y*Y) * (1./(X*X*Y2*Y2) + 1./(Y*Y*X2*X2))
+           + SQR(r/z_m_z2) * (1./(X*X*Y2*Y2) - 1./(X2*X2*Y*Y))) * std::log(X*X*Y2*Y2/(X2*X2*Y*Y));
+        double kernel_2 = (SQR(r/z_m_z2) * (1./(X*X*Y2*Y2) + 1./(Y*Y*X2*X2)) - pow(r,4)/SQR(X*Y2*X2*Y)) *std::log(X*X*Y2*Y2/(X2*X2*Y*Y));
+        
+        double dipole_1 = 1./(NC*NC*NC) * (dip3_re - sext_re) - (1./(NC*NC) * (fourpt - sr));
+        double dipole_2 = 1./(NC*NC*NC) * dip3_re - 1./(NC*NC)*fourpt;
+        
+        double dipole_1_largenc = (sx*szz*sy2 - sx*sy);
+        double dipole_2_largenc = (sx*szz*sy2 - sx*sy); // S(X)S(Y) subtraction added
+       
+
+        double dipcut = 1e-10;
+         double kercut = 1e10;
+         if (abs(kernel_1) > kercut && abs(dipole_1) < dipcut)
+         {    dipole_1 = 0.; dipole_1_largenc=0; }
+         if (abs(kernel_2) > kercut && abs(dipole_2) < dipcut)
+         {   dipole_2=0; dipole_2_largenc=0; } 
+
+ 
+        double result_finitenc = - (kernel_1*dipole_1 + kernel_2*dipole_2)/2.;
+        double result_largenc = - (kernel_1*dipole_1_largenc + kernel_2*dipole_2_largenc)/2.;
+       
+        result = result_finitenc;  
+        //result = - (kernel_1 * (dipole_1 - dipole_1_largenc) + kernel_2 * (dipole_2 - dipole_2_largenc))/2.;
+        
+        // --------------------
+
+        
+
+        // Phase space partitions --------------------
+        //double rsat = 0.1;
+        
+        //if (X<rsat && Y<rsat && X2<rsat && Y2<rsat && z_m_z2<rsat && r<rsat) // case 1
+        //        result = - (kernel_1 * (dipole_1 - dipole_1_largenc) + kernel_2 * (dipole_2 - dipole_2_largenc))/2.;
+        //if (X<rsat && Y<rsat && X2>=rsat && Y2>=rsat && z_m_z2>=rsat && r<rsat) // case 2
+        //        result = - (kernel_1 * (dipole_1 - dipole_1_largenc) + kernel_2 * (dipole_2 - dipole_2_largenc))/2.;
+        //if (X>=rsat && Y>=rsat && X2<rsat && Y2<rsat && z_m_z2>=rsat && r<rsat) // case 3
+        //        result = - (kernel_1 * (dipole_1 - dipole_1_largenc) + kernel_2 * (dipole_2 - dipole_2_largenc))/2.;
+        //if (X>=rsat && Y>=rsat && X2>=rsat && Y2>=rsat && z_m_z2<rsat && r<rsat) // case 4
+        //        result = - (kernel_1 * (dipole_1 - dipole_1_largenc) + kernel_2 * (dipole_2 - dipole_2_largenc))/2.;
+        //if (X>=rsat && Y>=rsat && X2>=rsat && Y2>=rsat && z_m_z2>=rsat && r<rsat) // case 5
+        //        result = - (kernel_1 * (dipole_1 - dipole_1_largenc) + kernel_2 * (dipole_2 - dipole_2_largenc))/2.;
+        //if (X>=rsat && Y<rsat && X2>=rsat && Y2<rsat && z_m_z2<rsat && r>=rsat) // case 6
+        //        result = - (kernel_1 * (dipole_1 - dipole_1_largenc) + kernel_2 * (dipole_2 - dipole_2_largenc))/2.;
+        //if (X>=rsat && Y<rsat && X2<rsat && Y2>=rsat && z_m_z2>=rsat && r>=rsat) // case 7
+        //        result = - (kernel_1 * (dipole_1 - dipole_1_largenc) + kernel_2 * (dipole_2 - dipole_2_largenc))/2.;
+        //if (X>=rsat && Y<rsat && X2>=rsat && Y2>=rsat && z_m_z2>=rsat && r>=rsat) // case 8
+        //        result = - (kernel_1 * (dipole_1 - dipole_1_largenc) + kernel_2 * (dipole_2 - dipole_2_largenc))/2.;
+        //if (X<rsat && Y>=rsat && X2>=rsat && Y2<rsat && z_m_z2>=rsat && r>=rsat) // case 9
+        //        result = - (kernel_1 * (dipole_1 - dipole_1_largenc) + kernel_2 * (dipole_2 - dipole_2_largenc))/2.;
+        //if (X<rsat && Y>=rsat && X2<rsat && Y2>=rsat && z_m_z2<rsat && r>=rsat) // case 10
+        //        result = - (kernel_1 * (dipole_1 - dipole_1_largenc) + kernel_2 * (dipole_2 - dipole_2_largenc))/2.;
+        //if (X<rsat && Y>=rsat && X2>=rsat && Y2>=rsat && z_m_z2>=rsat && r>=rsat) // case 11
+        //        result = - (kernel_1 * (dipole_1 - dipole_1_largenc) + kernel_2 * (dipole_2 - dipole_2_largenc))/2.;
+        //if (X>=rsat && Y>=rsat && X2>=rsat && Y2<rsat && z_m_z2>=rsat && r>=rsat) // case 12
+        //        result = - (kernel_1 * (dipole_1 - dipole_1_largenc) + kernel_2 * (dipole_2 - dipole_2_largenc))/2.;
+        //if (X>=rsat && Y>=rsat && X2<rsat && Y2>=rsat && z_m_z2>=rsat && r>=rsat) // case 13
+        //        result = - (kernel_1 * (dipole_1 - dipole_1_largenc) + kernel_2 * (dipole_2 - dipole_2_largenc))/2.;
+        //if (X>=rsat && Y>=rsat && X2>=rsat && Y2>=rsat && z_m_z2<rsat && r>=rsat) // case 14
+        //        result = - (kernel_1 * (dipole_1 - dipole_1_largenc) + kernel_2 * (dipole_2 - dipole_2_largenc))/2.;
+        //if (X>=rsat && Y>=rsat && X2>=rsat && Y2>=rsat && z_m_z2>=rsat && r>=rsat) // case 15
+        //        result = - (kernel_1 * (dipole_1 - dipole_1_largenc) + kernel_2 * (dipole_2 - dipole_2_largenc))/2.;
+        
+        //else
+        //        result = 0.;
+        // --------------------
 
         
         
-        double sx = dipole_interp_s->Evaluate(X);
-        double sy = dipole_interp_s->Evaluate(Y);
-        double sr = dipole_interp_s->Evaluate(r);
-        double sy2 = dipole_interp_s->Evaluate(Y2);
-        double szz = dipole_interp_s->Evaluate(z_m_z2);
-        
-        double kernel_1 = -4.0 / pow(z_m_z2,4)
-                + (2.0*(X*X*Y2*Y2 + X2*X2*Y*Y - 4.0*r*r*z_m_z2*z_m_z2) / (pow(z_m_z2,4)*(X*X*Y2*Y2 - X2*X2*Y*Y))
-                + pow(r,4)/(X*X*Y2*Y2 - X2*X2*Y*Y) * (1.0 / (X*X*Y2*Y2) + 1.0/(Y*Y*X2*X2))
-                + SQR(r/z_m_z2) * (1.0 / (X*X*Y2*Y2) - 1.0/(X2*X2*Y*Y))) * std::log(X*X*Y2*Y2/(X2*X2*Y*Y));
-        
-        double kernel_2 = (SQR(r/z_m_z2) * (1.0/(X*X*Y2*Y2) + 1.0/(Y*Y*X2*X2)) - pow(r,4)/SQR(X*Y2*X2*Y)) *std::log(X*X*Y2*Y2/(X2*X2*Y*Y));
-        
-        double dipole_1 = 1./(NC*NC*NC) * (dip3.real() - sext.real()) - (sx*sy - 1./SQR(NC) * sr);
-        
-        double dipole_2 = 1./(NC*NC*NC) * dip3.real() - sx*sy;
-        
-        double dipole_1_largenc =( sx*szz*sy2 - sx*sy  );
-        
-        double dipole_2_largenc =( sx*szz*sy2 - sx*sy ); // S(X)S(Y) subtraction added
-        
-        // cout << dipole_1 << " " << dipole_1_largenc << " " << dipole_2 << " " << dipole_2_largenc << endl;
-        
-        result = -(kernel_1*dipole_1 + kernel_2*dipole_2)/2.0;
-        
-        double result_largenc = -(kernel_1*dipole_1_largenc + kernel_2*dipole_2_largenc)/2.0;
-        // result = result_largenc;
         
         
-        
-        //if (abs(dip3.imag()) > std::pow(10., -9.))
-//        {
-//            cout //<< "sss(largenc)=" <<sx*szz*sy2 << " finitenc " << 1.0/(NC*NC*NC)*dip3.real()
-//            << "dipole_2_largenc = " << dipole_2_largenc
-//            << "     dipole_2 = " << dipole_2
-//            << "     dipole_1_largenc = " << dipole_1_largenc
-//            << "     dipole_1 = " << dipole_1
-//            << "     result = " << result
-//            << "     result_largenc = " << result_largenc
-////            << "     g_X = " << g_X
-////            << "     g_Y = " << g_Y
-////            << "     g_X2 = " << g_X2
-////            << "     g_Y2 = " << g_Y2
-////            << "     g_r = " << g_r
-////            << "     g_z_m_z2 = " << g_z_m_z2
-//            << endl;
-//        }
-        
-        // Andy End
+// Andy end --------------------------------------------------
         
         
         

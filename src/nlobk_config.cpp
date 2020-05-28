@@ -28,7 +28,7 @@ namespace config
      double MINR=1e-4;
      unsigned int RPOINTS = 70;
 
-     size_t MCINTPOINTS = 1e7;
+     size_t MCINTPOINTS = 2e7;
 
 
      Equation EQUATION = QCD;  
