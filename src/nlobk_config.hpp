@@ -20,7 +20,8 @@ namespace config
 {
     extern double NC;
     extern double NF;
-
+    
+    extern bool FINITE_NC;
     
 
     extern double LAMBDAQCD;

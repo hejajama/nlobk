@@ -184,17 +184,17 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
     
         //if (dipole->RVal(i) < config::MINR*10) continue;
          
-        if (dipole->RVal(i) < 0.01)
-            continue;
-        
-        //if (amplitude[i] > 0.99999)
-        //{
-        //    dydt[i]=0;
+        //if (dipole->RVal(i) < 0.01)
         //    continue;
-        //}
         
-    if (i % 3 != 0)
-        continue;
+        if (amplitude[i] > 0.99999)
+        {
+            dydt[i]=0;
+            continue;
+        }
+        
+   // if (i % 3 != 0)
+     //   continue;
         
         double lo = par->solver->RapidityDerivative_lo(dipole->RVal(i), &interp, y);
 
@@ -208,6 +208,8 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
             interp_s.SetOverflow(0.0);
             //interp_s.SetMaxX(maxr_interp);
             nlo = par->solver->RapidityDerivative_nlo(dipole->RVal(i), &interp, &interp_s);
+            if (std::abs(nlo/interp.Evaluate(dipole->RVal(i))) > 0.4) 
+                nlo = 0;
         }
 
         if (config::DNDY)
@@ -388,8 +390,11 @@ double Inthelperf_lo_theta(double theta, void* p)
         
         double lo_largenc = helper->solver->Kernel_lo(r, z, theta) * ( N_X + N_Y - N_r - N_X*N_Y );
         double lo_finitenc = helper->solver->Kernel_lo(r, z, theta) * ( - 1./(NC*NC)*fourpt + sr);
-    
-        return lo_finitenc;
+
+        if (config::FINITE_NC)
+            return lo_finitenc;
+        else
+            return lo_largenc;   
     }
     else
     {
@@ -956,9 +961,9 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
     double z_m_z2 = std::sqrt( z*z + z2*z2 - 2.0*z*z2*std::cos(theta_z - theta_z2) );
 
    
-//jdouble rbound = 2.0*config::MINR;  // my minr=1e-4
-  //   if (X < rbound || X2 < rbound || Y < rbound || Y2 < rbound || r < rbound || z_m_z2 < rbound)
-  //        return 0;
+double rbound = 4.0*config::MINR;  // my minr=1e-4
+     if (X < rbound || X2 < rbound || Y < rbound || Y2 < rbound ||  z_m_z2 < rbound)
+          return 0;
  
     double result=0;
 
@@ -1181,16 +1186,19 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
 
         double dipcut = 1e-10;
          double kercut = 1e10;
-         if (abs(kernel_1) > kercut && abs(dipole_1) < dipcut)
+         if (abs(kernel_1) > kercut and abs(dipole_1) < dipcut)
          {    dipole_1 = 0.; dipole_1_largenc=0; }
-         if (abs(kernel_2) > kercut && abs(dipole_2) < dipcut)
+         if (abs(kernel_2) > kercut and abs(dipole_2) < dipcut)
          {   dipole_2=0; dipole_2_largenc=0; } 
 
  
         double result_finitenc = - (kernel_1*dipole_1 + kernel_2*dipole_2)/2.;
         double result_largenc = - (kernel_1*dipole_1_largenc + kernel_2*dipole_2_largenc)/2.;
-       
-        result = result_finitenc;  
+      
+        if (config::FINITE_NC)
+            result = result_finitenc;
+        else 
+            result = result_largenc;  
         //result = - (kernel_1 * (dipole_1 - dipole_1_largenc) + kernel_2 * (dipole_2 - dipole_2_largenc))/2.;
         
         // --------------------

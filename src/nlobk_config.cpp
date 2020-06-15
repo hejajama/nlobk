@@ -19,14 +19,16 @@ namespace config
 
      double LAMBDAQCD = 0.241;
      double LAMBDAQCD2 = LAMBDAQCD*LAMBDAQCD;
+    
+     bool FINITE_NC=false;
 
      int RINTPOINTS=85;
      int THETAINTPOINTS = 85;
      double INTACCURACY=0.001;
      double MCINTACCURACY = 0.2;
      double MAXR = 30;          // Quite small, only for testing
-     double MINR=1e-4;
-     unsigned int RPOINTS = 70;
+     double MINR=1e-6;
+     unsigned int RPOINTS = 100;
 
      size_t MCINTPOINTS = 2e7;
 
@@ -75,7 +77,7 @@ namespace config
     
      bool KINEMATICAL_CONSTRAINT = false;
     
-    bool EULER_METHOD = true;
+    bool EULER_METHOD = false;
 }
 
 
@@ -169,6 +171,13 @@ std::string NLOBK_CONFIG_STRING()
     {
         ss << endl << "# Not including K2 and Kf" << endl;
     }
+
+    if (config::FINITE_NC)
+    {
+        ss << endl << "# Finite NC" << endl;
+    }
+    else
+        ss << endl << "# Large NC" << endl;
     
     if (config::KINEMATICAL_CONSTRAINT)
         ss << endl << "# Kinematical constraint included" << endl;

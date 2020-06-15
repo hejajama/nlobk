@@ -197,6 +197,8 @@ int main(int argc, char* argv[])
                 return -1;
             }
         }
+        else if (string(argv[i])=="-mcintpoints")
+            config::MCINTPOINTS = StrToReal(argv[i+1]);
         else if (string(argv[i])=="-rc")
         {
             if (string(argv[i+1])=="parent")
@@ -309,7 +311,10 @@ int main(int argc, char* argv[])
         }
         else if (string(argv[i])=="-only_k1fin")
             config::ONLY_K1FIN = true;
-        
+       else if (string(argv[i])=="-finitenc")
+            config::FINITE_NC=true; 
+        else if (string(argv[i])=="-largenc")
+            config::FINITE_NC=false;
         else if (string(argv[i]).substr(0,1)=="-") 
         {
             cerr << "Unrecoginzed parameter " << argv[i] << endl;
@@ -347,6 +352,12 @@ int main(int argc, char* argv[])
             exit(1);
     }
     
+
+    config::RC_LO = BALITSKY_LO;
+    config::RC_NLO = SMALLEST_NLO;
+    config::RESUM_RC = RESUM_RC_SMALLEST;
+
+
     cout << "# " << NLOBK_CONFIG_STRING() << endl;
     cout << "#Initial condition is " << ic->GetString() << endl;
 
@@ -359,6 +370,8 @@ int main(int argc, char* argv[])
 
     if (config::DNDY)
         cout << "# r   dN/dy [K1]   dN/dy [K2]  N" << endl;
+
+    
 
     BKSolver solver(&dipole);
     solver.SetAlphasScaling(alphas_scaling);
