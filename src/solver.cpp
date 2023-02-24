@@ -318,6 +318,43 @@ double Inthelperf_lo_z(double z, void* p)
 }
 
 
+
+
+// Rapidity shift Delta_i as in
+// http://www.int.washington.edu/talks/WorkShops/int_18_3/People/Triantafyllopoulos_D/Triantafyllopoulos.pdf
+// slide "Numerical solution"
+// Or new: https://arxiv.org/pdf/1902.06637.pdf eq (5.7)
+double RapidityShift(double r, double X)
+{
+    /*    double A = 1.0;
+     double B = 1.0;
+     if (r==0)
+     return 0;
+     
+     double kappa = X/r;
+     return (1.0 - kappa*kappa) / (A * std::pow(kappa,4) + B*std::pow(kappa,2) + 1.0) * std::log(1.0/(kappa*kappa));
+     */
+    
+    if (X < 1e-10) // Divergence
+        return 0; // Would give -inf, force to 0
+    
+    double result = std::max(0.0, std::log(r*r/(X*X)));
+    
+    return std::max(0.0, std::log(r*r/(X*X)));
+    
+}
+
+double StepFunction(double x)
+{
+    if (x>=0)
+        return 1.0;
+    else
+        return 0.0;
+}
+
+
+
+
 double Inthelperf_lo_theta(double theta, void* p)
 {
         //cout << " theta " << theta << endl;
@@ -355,6 +392,8 @@ double Inthelperf_lo_theta(double theta, void* p)
             cerr << "Using KinematicalConstraint but not EulerMethod? " << LINEINFO << endl;
             exit(1);
         }
+        
+        /*
         // Implement kinematical constraint from 1708.06557 Eq. 165
        // For one of the Delta parametrizations we need the angle between vecs (x-z) and (y-z), use the law of sines
          double sin_a = r/X * std::sin(theta);
@@ -371,12 +410,75 @@ double Inthelperf_lo_theta(double theta, void* p)
         double s02 = 1.0 - helper->solver->GetDipole()->InterpolateN(X, shifted_rapidity);
         double s12 = 1.0 - helper->solver->GetDipole()->InterpolateN(Y, shifted_rapidity);
         double s01 = 1.0 - N_r;
-
+         
+         //return helper->solver->Kernel_lo(r, z, theta) * ( -s02*s12 + s01);
+         */
+        
+        
+        
+        // Edmond et al
+        double shifted_1 = helper->rapidity - RapidityShift(r,X);
+        double shifted_2 = helper->rapidity - RapidityShift(r,Y);
+        
+        double icx0 = 0.01; //helper->solver->GetX0();
+        double x0 = 1; // //helper->solver->GetICX0_nlo_impfac();
+        double eta0 = std::log(x0/icx0);
+        
+        // Step function
+        // not in (9.3)
+        // Note that our evolution starts at eta=0, and eta=0 corresponds to helper->solver->GetX0();
+        // So the kinematical requirement for the step function is that xbj < 1, meaning that
+        // helper->rapidity - rpaidity_shift > -eta0
+        // or helper->rapidity + eta0 - rapidity_shift > 0
+        // So note that notation is different than in 1902.06637
+        double xyzshift = std::max(0.0, std::log(r*r / std::min( X*X+eps, Y*Y+eps ) ) );
+        if (helper->rapidity - xyzshift < 0) return 0;
+        // NOTE: this should take into account eta_0. As it does not, this cut is too strong if initial eta-bk>0,
+        // problematic phasespace is if X<r or Y<r, so there is less evolution at large parent dipoles than should have.
+        
+        // (9.3)
+        // If shifted rapidity < 0, use initial condition
+        double shifted_S_X = 0;
+        if (helper->rapidity - RapidityShift(r,X) > 0)
+            shifted_S_X = 1.0 - helper->solver->GetDipole()->InterpolateN(X, helper->rapidity - RapidityShift(r,X));
+        else
+            shifted_S_X = 1.0 - helper->solver->GetDipole()->InterpolateN(X,0);
+            //shifted_S_X = 1.0 - helper->solver->GetDipole()->GetInitialCondition()->DipoleAmplitude(X);
+        //shifted_S_X =  1.0 - helper->solver->GetDipole()->InterpolateN(X, helper->rapidity - RapidityShift(r,X));
+        
+        double shifted_S_Y = 0;
+        if (helper->rapidity - RapidityShift(r,Y) > 0)
+            shifted_S_Y = 1.0 - helper->solver->GetDipole()->InterpolateN(Y, helper->rapidity - RapidityShift(r,Y));
+        else
+            shifted_S_Y = 1.0 - helper->solver->GetDipole()->InterpolateN(Y,0); //helper->solver->GetDipole()->GetInitialCondition()->DipoleAmplitude(Y);
+        //        shifted_S_Y = 1.0 - helper->solver->GetDipole()->InterpolateN(Y, helper->rapidity - RapidityShift(r,Y));
+        
+        
+        double S_r = 0;
+        if (helper->rapidity > 0)
+            S_r = 1.0 - helper->dipole_interp->Evaluate(r);
+        else
+            S_r = 1.0 -helper->solver->GetDipole()->InterpolateN(r,0); //helper->solver->GetDipole()->GetInitialCondition()->DipoleAmplitude(r);
+        
+        // Check possible numerical errors
+        if (shifted_S_X < 0) shifted_S_X  = 0;
+        if (shifted_S_Y < 0) shifted_S_Y = 0;
+        if (S_r < 0) S_r= 0;
+        
+        // - as we evolve N, and this is written otherwise of S
+        double res =  -helper->solver->Kernel_lo(r, z, theta)  * ( shifted_S_X * shifted_S_Y - S_r );
+        if (std::isnan(res))
+        {
+            cout << "NaN! rapidity " << helper->rapidity << " Xshift " << RapidityShift(r,X) << " Yshift " << RapidityShift(r,Y) << " X=" << X << ", Y=" << Y <<", r=" << r <<", S_X " << shifted_S_X << " S_Y " << shifted_S_Y << endl;
+            exit(1);
+        }
+        
+        return res;
 
 //		if (-s02*s12 + s01 < 0 and r>0.1)
 //			cout << "Dipole part " << -s02*s12 + s01 << " at r " << r << " shifter rapidity " << shifted_rapidity << " rapidity " << helper->rapidity << " kernel " << helper->solver->Kernel_lo(r, z, theta) << " s012 " << -s02*s12 << " s01 " << s01 <<   endl;
         
-        return helper->solver->Kernel_lo(r, z, theta) * ( -s02*s12 + s01);
+       
         
     }
 }
