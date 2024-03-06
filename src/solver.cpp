@@ -742,8 +742,8 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
               {
                 gsl_monte_vegas_integrate (&fun, min, max, dim, calls, rnd, s,
                                            &result, &abserr);
-                #pragma omp critical
-                cout << "#Result(r=" << r <<") " << result << " err " << abserr << " relchange " << (result-prevres)/prevres << " chi^2 " << gsl_monte_vegas_chisq (s) << endl;
+                //#pragma omp critical
+                //cout << "#Result(r=" << r <<") " << result << " err " << abserr << " relchange " << (result-prevres)/prevres << " chi^2 " << gsl_monte_vegas_chisq (s) << endl;
                 prevres=result;
                 iters++;
               }
@@ -752,7 +752,7 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
             //#pragma omp critical
             if (iters>=maxiter_vegas)
             {
-                cout <<"# Integration failed at r=" << r <<", bestresult "<< result << " relerr " << abserr/result << " chi^2 "  << gsl_monte_vegas_chisq (s) << endl;
+                cerr <<"# Integration failed at r=" << r <<", bestresult "<< result << " relerr " << abserr/result << " chi^2 "  << gsl_monte_vegas_chisq (s) << endl;
                 //result=0;
             }
             //else
