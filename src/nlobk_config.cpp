@@ -25,8 +25,8 @@ namespace config
      double INTACCURACY=0.001;
      double MCINTACCURACY = 0.2;
      double MAXR = 30;          // Quite small, only for testing
-     double MINR=1e-6;
-     unsigned int RPOINTS = 200;
+     double MINR=1e-4;
+     unsigned int RPOINTS = 100;
 
      size_t MCINTPOINTS = 1e7;
 
@@ -45,7 +45,7 @@ namespace config
      bool DOUBLELOG_LO_KERNEL = true; // include double log term from the LO kernel
      bool ONLY_DOUBLELOG = false;
 
-     INTEGRATION_METHOD INTMETHOD_NLO = MISER;
+     INTEGRATION_METHOD INTMETHOD_NLO = VEGAS;
 
      bool LO_BK = false;    // solve only LO BK
 
@@ -122,7 +122,7 @@ std::string NLOBK_CONFIG_STRING()
     
     if (EQUATION == QCD)
     {
-        if (DOUBLELOG_LO_KERNEL) ss << ". QCD, Double log term in LO kernel included";
+        if (DOUBLELOG_LO_KERNEL and !RESUM_DLOG) ss << ". QCD, Double log term in LO kernel included";
         else ss << ". QCD, Double log term in LO kernel NOT included";
     }
     else if (EQUATION == CONFORMAL_QCD) ss << ". Solving for CONFORMAL dipole";

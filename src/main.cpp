@@ -63,6 +63,8 @@ int main(int argc, char* argv[])
         cout <<"-output filename_to_save_data" << endl;
         cout << "-eq qcd,confqcd,n4: set equation to solve" << endl;
         cout << "-rc smallest,parent,parent_beta,fixed: set running coupling" << endl;
+        cout << "-resumrc smallest,parent: running coupling scheme for resummation" << endl;
+        cout << "-nlorc parent,smallest: running coupling scheme for as^2 terms" << endl;
         cout << "-lo: solve LO BK" << endl;
         cout << "-only_nlo: keep only nlo terms" << endl;
         cout << "-nodlog: do not include double log term" << endl;
@@ -71,7 +73,6 @@ int main(int argc, char* argv[])
         cout << "-nolnr: do not include ln r^2 terms" << endl;
         cout << "-nf nf: set number of quark flavors" << endl;
         cout << "-nolimit: do not force N>=0" << endl;
-        cout << "-ic [mv,mve,mvgamma] set initial condition" << endl;
         cout << "-dndy: print dn/dy at initial condition and exit" << endl;
         cout << "-alphas_scaling C^2: set C^2 [setting mv/mve/mvgamma ic sets this also]" << endl;
         cout << "-ln_alphas_scaling ln C^2: set ln C^2" << endl;
@@ -81,7 +82,8 @@ int main(int argc, char* argv[])
         cout << "-only_subtraction: calculate only effect from subtraction" << endl;
         cout << "-no_k2: do not include K_2 and K_f" << endl;
         cout << "-ONLY_RESUM_DLOG: only calculate the effect of resummation" << endl;
-        cout << "-only_k1fin: include only k1fin contribution from k1"; 
+        cout << "-only_k1fin: include only k1fin contribution from k1" << endl;  
+        cout << "-mcintpoints: set number of mc int points for the nlo part" << endl;
         cout << endl;
         return 0;
     }
@@ -105,79 +107,13 @@ int main(int argc, char* argv[])
                 ((MV*)ic)->SetQsqr(StrToReal(argv[i+2]));
                 ((MV*)ic)->SetAnomalousDimension(StrToReal(argv[i+3]));
 				((MV*)ic)->SetE(exp(StrToReal(argv[i+4])));
-                alphas_scaling = 1; // This is set by -alphas_scaling, hopefully
             }
+            
             else
             {
-                ic = new MV();
-                if (string(argv[i+1])=="mv")
-                {
-                    ((MV*)ic)->SetQsqr(0.2);
-                    alphas_scaling=0.315237;
-                }
-                else if (string(argv[i+1])=="mv02")
-                {
-                    ((MV*)ic)->SetQsqr(0.2);
-                    alphas_scaling = 1;
-                }
-                else if (string(argv[i+1])=="mv1")
-                {
-                    ((MV*)ic)->SetQsqr(1);
-                    alphas_scaling = std::exp(-2.0*0.57721);
-                }
-                else if (string(argv[i+1])=="mv10")
-                {
-                    ((MV*)ic)->SetQsqr(10);
-                    alphas_scaling = std::exp(-2.0*0.57721);
-                }
-                else if (string(argv[i+1])=="mve")
-                {
-                    ((MV*)ic)->SetQsqr(0.06);
-                    ((MV*)ic)->SetE(18.9);
-                    alphas_scaling = 7.2;
-                }
-                else if (string(argv[i+1])=="mvgamma")
-                {
-                    ((MV*)ic)->SetQsqr(0.165);
-                    ((MV*)ic)->SetAnomalousDimension(1.135);
-                    alphas_scaling = 6.35;
-                }
-                else if (string(argv[i+1])=="mvgamma_08")
-                {
-                    ((MV*)ic)->SetQsqr(1);
-                    ((MV*)ic)->SetAnomalousDimension(0.8);
-                    alphas_scaling = std::exp(-2.0*0.57721);
-                }
-                else if (string(argv[i+1])=="mvgamma_08_qsqr_100")
-                {   
-                    ((MV*)ic)->SetQsqr(100);
-                    ((MV*)ic)->SetAnomalousDimension(0.8);
-                    alphas_scaling = std::exp(-2.0*0.57721);
-                }
-                else if (string(argv[i+1])=="mvgamma_09")
-                {
-                    ((MV*)ic)->SetQsqr(1);
-                    ((MV*)ic)->SetAnomalousDimension(0.9);
-                    alphas_scaling = std::exp(-2.0*0.57721);
-                }
-                else if (string(argv[i+1])=="mvgamma_095")
-                {
-                    ((MV*)ic)->SetQsqr(1);
-                    ((MV*)ic)->SetAnomalousDimension(0.95);
-                    alphas_scaling = std::exp(-2.0*0.57721);
-                }
-                else if (string(argv[i+1])=="mvgamma_1")
-                {
-                    ((MV*)ic)->SetQsqr(1);
-                    ((MV*)ic)->SetAnomalousDimension(1.0);
-                    alphas_scaling = std::exp(-2.0*0.57721);
-                }
-                else
-                {
                     cerr << "Uknown initial condition " << argv[i+1] << endl;
                     return -1;
-                }
-            }
+            }    
         }
         else if (string(argv[i])=="-output")
             output = argv[i+1];
@@ -202,40 +138,55 @@ int main(int argc, char* argv[])
             if (string(argv[i+1])=="parent")
             {
                 config::RC_LO = config::PARENT_LO;
-                config::RC_NLO = config::PARENT_NLO;
             }
             else if (string(argv[i+1])=="parent_beta")
             {
                 config::RC_LO = config::PARENT_BETA_LO;
-                config::RC_NLO = config::PARENT_NLO;
             }
             else if (string(argv[i+1])=="smallest")
             {
                 config::RC_LO = config::SMALLEST_LO;
-                config::RC_NLO = config::SMALLEST_NLO;
-                config::RESUM_RC = config::RESUM_RC_SMALLEST;
             }
             else if (string(argv[i+1])=="fixed")
             {
                 config::RC_LO = config::FIXED_LO;
-                config::RC_NLO = config::FIXED_NLO;
             }
             else if (string(argv[i+1])=="balitsky")
             {
                 config::RC_LO = config::BALITSKY_LO;
-                config::RC_NLO = config::PARENT_NLO;
-                config::RESUM_RC = config::RESUM_RC_PARENT;
             }
 			else if (string(argv[i+1])=="guillaume")
 			{
 				config::RC_LO = config::GUILLAUME_LO;
-				config::RC_NLO = config::PARENT_NLO;
-				config::RESUM_RC = config::RESUM_RC_PARENT;
 			}
             else
             {
                 cerr << "Unknown RC " << argv[i+1] << " at " << LINEINFO << endl;
                 return -1;
+            }
+        }
+        else if (string(argv[i])=="-resumrc")
+        {
+            if (string(argv[i+1])=="parent")
+                config::RESUM_RC = config::RESUM_RC_PARENT;
+            else if (string(argv[i+1])=="smallest")
+                config::RESUM_RC = config::RESUM_RC_SMALLEST;
+            else 
+            {
+                cerr << "Unknwon running coupling scheme " << argv[i+1] << " for the resummation contribution" << endl;
+                return 0;
+            }
+        }
+        else if (string(argv[i])=="-nlorc")
+        {
+            if (string(argv[i+1])=="parent")
+                config::RC_NLO = config::PARENT_NLO;
+            else if (string(argv[i+1])=="smallest")
+                config::RC_NLO = config::SMALLEST_NLO;
+            else 
+            {
+                cerr << "Unknwon running coupling scheme " << argv[i+1] << " for the NLO contribution" << endl;
+                return 0;
             }
         }
         else if (string(argv[i])=="-lo")
@@ -284,8 +235,6 @@ int main(int argc, char* argv[])
             alphas_scaling = StrToReal(argv[i+1]);
 		else if (string(argv[i])=="-ln_alphas_scaling")
 			alphas_scaling = exp(StrToReal(argv[i+1]));
-        else if (string(argv[i])=="-ln_alphas_scaling")
-            alphas_scaling = std::exp(StrToReal(argv[i+1]));
         
         else if (string(argv[i])=="-resum_dlog")
             config::RESUM_DLOG = true;
@@ -309,6 +258,8 @@ int main(int argc, char* argv[])
         }
         else if (string(argv[i])=="-only_k1fin")
             config::ONLY_K1FIN = true;
+        else if (string(argv[i])=="-mcintpoints")
+            config::MCINTPOINTS = StrToReal(argv[i+1]);
         
         else if (string(argv[i]).substr(0,1)=="-") 
         {
@@ -319,7 +270,7 @@ int main(int argc, char* argv[])
     }
 
 
-    /* Check that configs are not contraversal
+    /* Check that configs are not contradicting
      */
 
     if (ic == NULL)
@@ -330,7 +281,7 @@ int main(int argc, char* argv[])
 
     if (config::ONLY_NLO == true and config::LO_BK == true)
     {
-        cerr << "Asked to solve LO bk with only NLO terms!" << endl;
+        cerr << "Asked to solve LO BK with only NLO terms!" << endl;
         exit(1);
     }
 
@@ -355,7 +306,6 @@ int main(int argc, char* argv[])
 
     cout <<"# r grid size: " << dipole.RPoints() << " minr " << dipole.MinR() << " maxr " << dipole.MaxR() << endl;
 
-    //cout << "N(r=0.001)=" << dipole.N(0.001) <<", N(r=0.1)=" << dipole.N(0.1) <<", N(r=10)=" << dipole.N(10) << endl;
 
     if (config::DNDY)
         cout << "# r   dN/dy [K1]   dN/dy [K2]  N" << endl;

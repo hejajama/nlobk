@@ -74,7 +74,7 @@ int BKSolver::Solve(double maxy)
         
     const gsl_odeiv_step_type * T = gsl_odeiv_step_rk2; // rkf45 is more accurate 
     gsl_odeiv_step * s    = gsl_odeiv_step_alloc (T, vecsize);
-    gsl_odeiv_control * c = gsl_odeiv_control_y_new (0.00001, INTACCURACY);    //abserr relerr   // paper: 0.0001
+    gsl_odeiv_control * c = gsl_odeiv_control_y_new (0, INTACCURACY);    //abserr relerr   // paper: 0.0001
     gsl_odeiv_evolve * e  = gsl_odeiv_evolve_alloc (vecsize);
     double h = step;  // Initial ODE solver step size
     
@@ -672,7 +672,6 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
     Inthelper_nlobk helper;
     helper.solver=this;
     helper.r=r;
-    helper.dipole_interp;
     helper.dipole_interp = dipole_interp;
     helper.dipole_interp_s = dipole_interp_s;
     
@@ -748,13 +747,13 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
                 prevres=result;
                 iters++;
               }
-              while ((std::abs( abserr/result) > 0.3 or std::abs (gsl_monte_vegas_chisq (s) - 1.0) > 0.5 ) and iters<maxiter_vegas );
+              while ((std::abs( abserr/result) > 0.2 or std::abs (gsl_monte_vegas_chisq (s) - 1.0) > 0.4 ) and iters<maxiter_vegas );
             //while (fabs (gsl_monte_vegas_chisq (s) - 1.0) > 0.5);
             //#pragma omp critical
             if (iters>=maxiter_vegas)
             {
-                cout <<"# Integration failed at r=" << r <<", result->0, bestresult "<< result << " relerr " << abserr/result << " chi^2 "  << gsl_monte_vegas_chisq (s) << endl;
-                result=0;
+                cout <<"# Integration failed at r=" << r <<", bestresult "<< result << " relerr " << abserr/result << " chi^2 "  << gsl_monte_vegas_chisq (s) << endl;
+                //result=0;
             }
             //else
             //    cout << "Integration finished, r=" << r<< ", result " << result << " relerr " << abserr/result << " chi^2 "  << gsl_monte_vegas_chisq (s) << " (intpoints " << calls << ")" << endl;
@@ -788,8 +787,9 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
             gsl_monte_miser_free(s);
             //cout <<"#Integration finished at r=" << r <<", result " << result << " relerr " << abserr/result << " intpoints " << calls << endl;
             
-            gsl_rng_free(rnd);
-        }        
+            
+        }  
+        gsl_rng_free(rnd);      
            
     }
     
@@ -948,6 +948,16 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
         double dipole_swap = -( dipole_interp_s->Evaluate(X2)*dipole_interp_s->Evaluate(z_m_z2)*dipole_interp_s->Evaluate(Y)
                                 - dipole_interp_s->Evaluate(X2)*dipole_interp_s->Evaluate(Y2)  );
         
+
+        double dipcut = 1e-14;
+        double kercut = 1e14;
+        if (abs(k) > kercut and abs(dipole) < dipcut)
+         {    dipole=0; k=0; }
+         if (abs(kswap) > kercut and abs(dipole_swap) < dipcut)
+         {   dipole_swap=0; kswap=0; } 
+
+
+
         //result = k*dipole;
         result = (k*dipole + kswap*dipole_swap)/2.0;
 
