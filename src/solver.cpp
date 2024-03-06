@@ -70,7 +70,7 @@ int BKSolver::Solve(double maxy)
 
     // Intialize GSL
     DEHelper help; help.solver=this;
-    gsl_odeiv_system sys = {Evolve, NULL, vecsize, &help};
+    gsl_odeiv_system sys = {Evolve, NULL, static_cast<size_t>(vecsize), &help};
         
     const gsl_odeiv_step_type * T = gsl_odeiv_step_rk2; // rkf45 is more accurate 
     gsl_odeiv_step * s    = gsl_odeiv_step_alloc (T, vecsize);
