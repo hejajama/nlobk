@@ -74,7 +74,7 @@ int BKSolver::Solve(double maxy)
         
     const gsl_odeiv_step_type * T = gsl_odeiv_step_rk2; // rkf45 is more accurate 
     gsl_odeiv_step * s    = gsl_odeiv_step_alloc (T, vecsize);
-    gsl_odeiv_control * c = gsl_odeiv_control_y_new (0, INTACCURACY);    //abserr relerr   // paper: 0.0001
+    gsl_odeiv_control * c = gsl_odeiv_control_y_new (1e-4, 0.01);    //abserr relerr   // paper: 0.0001
     gsl_odeiv_evolve * e  = gsl_odeiv_evolve_alloc (vecsize);
     double h = step;  // Initial ODE solver step size
     
@@ -168,6 +168,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 	#pragma omp parallel for schedule(dynamic)
     for (unsigned int i=0; i< dipole->RPoints(); i+=1)
     {
+        if (i==0) { dydt[i]=0; continue; } // do not evolve at the edge, numerically problematic (for some reason)
         // It seems to be much more efficeint to initialize interpolators locally
         // for each thread
         Interpolator interp(rvals,nvals);
@@ -181,11 +182,11 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         
         //if (dipole->RVal(i) < 0.001)
         //    continue;
-        if (amplitude[i] > 0.99999)
+        /*if (amplitude[i] > 0.99999)
         {
             dydt[i]=0;
             continue;
-        }
+        }*/
         double lo = par->solver->RapidityDerivative_lo(dipole->RVal(i), &interp, y);
 
         double nlo=0;
@@ -212,6 +213,20 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 			dydt[i]=0;
 		}
         
+        if (dipole->RVal(i) < 1e-3 and dydt[i] < 0)
+        {
+            #pragma omp critical
+            cerr << "Note: decreasing dipole at r="<< dipole->RVal(i) <<": N="<< amplitude[i]<<", LOlike " << lo <<", NLOlike "<< nlo << endl;
+        }
+
+        if (std::abs(dydt[i]) > 5*config::DE_SOLVER_STEP*amplitude[i])
+        {
+            #pragma critical
+            cout <<"# Warning: y="<<y<<", r="<< dipole->RVal(i) <<", got (dN/dy)/N = " << dydt[i]/amplitude[i]<<", N=" << amplitude[i] <<", lo=" << lo <<", nlo=" << nlo <<", a smaller step size might be required" 
+<< endl;
+        } 
+
+
     }
     if (config::DNDY)
         exit(1);
@@ -398,7 +413,9 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     // Y = y-z = z
     double Y=z;
     // X = x-z = r - z
-    double X = std::sqrt( r*r + z*z - 2.0*r*z*std::cos(theta) );
+    double Xsqr = r*r + z*z - 2.0*r*z*std::cos(theta);
+    if (Xsqr <=0) return 0;
+    double X = std::sqrt(Xsqr); //std::sqrt( r*r + z*z - 2.0*r*z*std::cos(theta) );
     
     
     double result=0;
@@ -441,7 +458,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         result = 
          NC/(2.0*SQR(M_PI))*Alphas(r)
             * (
-            SQR(r) / ( SQR(X) * SQR(Y) + eps  )
+            SQR(r) / ( SQR(X) * SQR(Y)  )
             + 1.0/SQR(Y)*(alphas_y/alphas_x - 1.0)
             + 1.0/SQR(X)*(alphas_x/alphas_y - 1.0)
             );
@@ -449,12 +466,12 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     }
     else if (RC_LO == SMALLEST_LO)
     {
-        result = NC*Alphas(min) / (2.0*SQR(M_PI))*SQR(r/(X*Y + eps));
+        result = NC*Alphas(min) / (2.0*SQR(M_PI))*SQR(r/(X*Y ));
         alphas_scale = min;
     }
     else if (RC_LO == PARENT_LO)
     {
-        result = NC*Alphas(r) / (2.0*SQR(M_PI)) * SQR(r/(X*Y + eps));
+        result = NC*Alphas(r) / (2.0*SQR(M_PI)) * SQR(r/(X*Y ));
         alphas_scale = r;
     }
 	else if (RC_LO == FRAC_LO)
@@ -728,7 +745,7 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
 
         
         
-        const int maxiter_vegas=3;
+        const int maxiter_vegas=4;
 
         if (INTMETHOD_NLO == VEGAS)
         {
@@ -747,10 +764,10 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
                 prevres=result;
                 iters++;
               }
-              while ((std::abs( abserr/result) > 0.2 or std::abs (gsl_monte_vegas_chisq (s) - 1.0) > 0.4 ) and iters<maxiter_vegas );
+              while (((std::abs( abserr/result) > 0.2 or std::abs (gsl_monte_vegas_chisq (s) - 1.0) > 0.2 ) and iters<maxiter_vegas) or iters < 2 );
             //while (fabs (gsl_monte_vegas_chisq (s) - 1.0) > 0.5);
             //#pragma omp critical
-            if (iters>=maxiter_vegas)
+            if (iters>=maxiter_vegas and std::abs(abserr/result)>0.2 and dipole_interp->Evaluate(r)<0.99) // Print error messages in case of a more serios error
             {
                 cerr <<"# Integration failed at r=" << r <<", bestresult "<< result << " relerr " << abserr/result << " chi^2 "  << gsl_monte_vegas_chisq (s) << endl;
                 //result=0;
@@ -912,7 +929,13 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
     // z - z'
     double z_m_z2 = std::sqrt( z*z + z2*z2 - 2.0*z*z2*std::cos(theta_z - theta_z2) );
 
-    
+
+    // Check that we did not take a square root of a negative number. This should never be the case, but some floating point arithmetics
+    // may result in such an error
+    if ( r*r + z*z - 2.0*r*z*std::cos(theta_z)<0 or r*r + z2*z2 - 2.0*r*z2*std::cos(theta_z2)  < 0 or z*z + z2*z2 - 2.0*z*z2*std::cos(theta_z - theta_z2) < 0  )
+    {
+        return 0;
+    } 
     double result=0;
 
     if (EQUATION == QCD)
@@ -949,8 +972,8 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
                                 - dipole_interp_s->Evaluate(X2)*dipole_interp_s->Evaluate(Y2)  );
         
 
-        double dipcut = 1e-14;
-        double kercut = 1e14;
+        double dipcut = 1e-10;
+        double kercut = 1e10;
         if (abs(k) > kercut and abs(dipole) < dipcut)
          {    dipole=0; k=0; }
          if (abs(kswap) > kercut and abs(dipole_swap) < dipcut)

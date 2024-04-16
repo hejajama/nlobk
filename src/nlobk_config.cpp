@@ -26,9 +26,9 @@ namespace config
      double MCINTACCURACY = 0.2;
      double MAXR = 30;          // Quite small, only for testing
      double MINR=1e-4;
-     unsigned int RPOINTS = 100;
+     unsigned int RPOINTS =50; // Number of points in r grid
 
-     size_t MCINTPOINTS = 1e7;
+     size_t MCINTPOINTS = 2e4;
 
 
      Equation EQUATION = QCD;  
@@ -75,7 +75,7 @@ namespace config
     
      bool KINEMATICAL_CONSTRAINT = false;
     
-    bool EULER_METHOD = true;
+    bool EULER_METHOD = false;
 }
 
 
