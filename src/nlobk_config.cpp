@@ -75,7 +75,7 @@ namespace config
     
      bool KINEMATICAL_CONSTRAINT = false;
     
-    bool EULER_METHOD = true;
+    bool EULER_METHOD = false;
 }
 
 

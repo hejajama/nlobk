@@ -74,7 +74,7 @@ int BKSolver::Solve(double maxy)
         
     const gsl_odeiv_step_type * T = gsl_odeiv_step_rk2; // rkf45 is more accurate 
     gsl_odeiv_step * s    = gsl_odeiv_step_alloc (T, vecsize);
-    gsl_odeiv_control * c = gsl_odeiv_control_y_new (0, INTACCURACY);    //abserr relerr   // paper: 0.0001
+    gsl_odeiv_control * c = gsl_odeiv_control_y_new (1e-6, INTACCURACY);    //abserr relerr   // paper: 0.0001
     gsl_odeiv_evolve * e  = gsl_odeiv_evolve_alloc (vecsize);
     double h = step;  // Initial ODE solver step size
     
@@ -949,8 +949,8 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
                                 - dipole_interp_s->Evaluate(X2)*dipole_interp_s->Evaluate(Y2)  );
         
 
-        double dipcut = 1e-14;
-        double kercut = 1e14;
+        double dipcut = 1e-10;
+        double kercut = 1e10;
         if (abs(k) > kercut and abs(dipole) < dipcut)
          {    dipole=0; k=0; }
          if (abs(kswap) > kercut and abs(dipole_swap) < dipcut)
