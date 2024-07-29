@@ -74,7 +74,7 @@ int BKSolver::Solve(double maxy)
         
     const gsl_odeiv_step_type * T = gsl_odeiv_step_rk2; // rkf45 is more accurate 
     gsl_odeiv_step * s    = gsl_odeiv_step_alloc (T, vecsize);
-    gsl_odeiv_control * c = gsl_odeiv_control_y_new (1e-4, 0.01);    //abserr relerr   // paper: 0.0001
+    gsl_odeiv_control * c = gsl_odeiv_control_y_new (1e-6, INTACCURACY);    //abserr relerr   // paper: 0.0001
     gsl_odeiv_evolve * e  = gsl_odeiv_evolve_alloc (vecsize);
     double h = step;  // Initial ODE solver step size
     
