@@ -22,7 +22,7 @@
 #include <gsl/gsl_errno.h>
 
 // Integration constants
-const double eps = 1e-40;
+const double eps = 1e-30;
 using namespace config;
 using std::isinf;
 using std::isnan;
@@ -74,7 +74,7 @@ int BKSolver::Solve(double maxy)
         
     const gsl_odeiv_step_type * T = gsl_odeiv_step_rk2; // rkf45 is more accurate 
     gsl_odeiv_step * s    = gsl_odeiv_step_alloc (T, vecsize);
-    gsl_odeiv_control * c = gsl_odeiv_control_y_new (1e-6, INTACCURACY);    //abserr relerr   // paper: 0.0001
+    gsl_odeiv_control * c = gsl_odeiv_control_y_new (1e-6, 1e-4);    //abserr relerr   // paper: 0.0001
     gsl_odeiv_evolve * e  = gsl_odeiv_evolve_alloc (vecsize);
     double h = step;  // Initial ODE solver step size
     
@@ -85,6 +85,7 @@ int BKSolver::Solve(double maxy)
             double  nexty = y+step;
             while (y<nexty)
             {
+                cout << "Evolving y="<<y <<endl;
                 int status = gsl_odeiv_evolve_apply(e, c, s, &sys,
                     &y, nexty, &h, ampvec);
                 if (status != GSL_SUCCESS) {
@@ -143,7 +144,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 {
     DEHelper* par = reinterpret_cast<DEHelper*>(params);
     Dipole* dipole = par->solver->GetDipole();
-	//cout << "#Evolving, rapidity " << y << endl;
+	cout << "#Evolving, rapidity " << y << endl;
 
 
     // Create interpolators for N(r) and S(r)=1-N(r)
@@ -182,11 +183,11 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         
         //if (dipole->RVal(i) < 0.001)
         //    continue;
-        /*if (amplitude[i] > 0.99999)
+        if (amplitude[i] > 0.99999)
         {
             dydt[i]=0;
             continue;
-        }*/
+        }
         double lo = par->solver->RapidityDerivative_lo(dipole->RVal(i), &interp, y);
 
         double nlo=0;
@@ -483,13 +484,13 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 		result = 1.0/(2.0*M_PI) * std::pow(
 			1.0/asbar_r + (SQR(X)-SQR(Y))/SQR(r) * (asbar_x - asbar_y)/(asbar_x * asbar_y) 		
 		, -1.0);
-		result = result * SQR(r / (X*Y + eps));
+		result = result * SQR(r / (X*Y ));
 		alphas_scale=r;	// this only affects K1_fin
 	}
 	else if (RC_LO == GUILLAUME_LO)
 	{
 		// 1708.06557 Eq. 169
-		double r_eff_sqr = r*r * std::pow( Y*Y / (X*X + eps), (X*X-Y*Y)/(r*r) );
+		double r_eff_sqr = r*r * std::pow( Y*Y / (X*X ), (X*X-Y*Y)/(r*r) );
 		result = NC*Alphas(std::sqrt(r_eff_sqr)) / (2.0*SQR(M_PI)) * SQR(r/(X*Y + 1e-40));
 		alphas_scale = std::sqrt(r_eff_sqr);
 
@@ -526,7 +527,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 
     if (config::ONLY_DOUBLELOG)
     {  
-        return resummation_alphas*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y + eps)
+        return resummation_alphas*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y )
                     * resummation_alphas * NC / (4.0*M_PI)
                     * (- 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) ) ;
     }
@@ -578,7 +579,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     double singlelog_resum = 1.0;
     double singlelog_resum_expansion = 0;
     double minxy = std::min(X,Y);
-    if (std::abs(minxy) < eps) minxy = eps;
+    if (std::abs(minxy) < eps) return 0; //minxy = eps;
     
     if (config::RESUM_SINGLE_LOG)
     {
@@ -624,7 +625,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
             return resum*singlelog_resum*result;
         }
         
-        double lo_kernel = Alphas(alphas_scale)*NC/(2.0*M_PI*M_PI) * SQR( r / (X*Y+eps)); // lo kernel with parent/smallest dipole
+        double lo_kernel = Alphas(alphas_scale)*NC/(2.0*M_PI*M_PI) * SQR( r / (X*Y)); // lo kernel with parent/smallest dipole
         double subtract = 0;
         if (config::RESUM_RC != RESUM_RC_BALITSKY)
             subtract = lo_kernel * singlelog_resum_expansion;
@@ -1152,13 +1153,15 @@ double Inthelperf_nlo_mc(double* vec, size_t dim, void* p)
 double BKSolver::Kernel_nlo(double r, double X, double Y, double X2, double Y2, double z_m_z2)
 {
 
+    if (X < eps or X2 < eps or Y < eps or Y2 < eps or z_m_z2 < eps) return 0;
+
     double kernel = -2.0/std::pow(z_m_z2,4);
 
     kernel += (
-        ( SQR(X*Y2) + SQR(X2*Y) - 4.0*SQR(r*z_m_z2) ) / ( std::pow(z_m_z2,4) * (SQR(X*Y2) - SQR(X2*Y)) + eps)
-        + std::pow(r,4) / ( SQR(X*Y2)*( SQR(X*Y2) - SQR(X2*Y) ) + eps  )
-        + SQR(r) / ( SQR(X*Y2*z_m_z2) + eps )
-        ) * 2.0*std::log( X*Y2/(X2*Y+eps) );
+        ( SQR(X*Y2) + SQR(X2*Y) - 4.0*SQR(r*z_m_z2) ) / ( std::pow(z_m_z2,4) * (SQR(X*Y2) - SQR(X2*Y)) )
+        + std::pow(r,4) / ( SQR(X*Y2)*( SQR(X*Y2) - SQR(X2*Y) )   )
+        + SQR(r) / ( SQR(X*Y2*z_m_z2)  )
+        ) * 2.0*std::log( X*Y2/(X2*Y) );
 
     if (isnan(kernel) or isinf(kernel))
     {
@@ -1173,10 +1176,12 @@ double BKSolver::Kernel_nlo_fermion(double r, double X, double Y, double X2, dou
 {
     double kernel=0;
 
+     if (X < eps or X2 < eps or Y < eps or Y2 < eps or z_m_z2 < eps) return 0;
+
     kernel = 2.0 / std::pow(z_m_z2,4.0);
 
     kernel -= (SQR(X*Y2) + SQR(X2*Y) - SQR(r*z_m_z2) ) / ( std::pow(z_m_z2, 4.0)*(SQR(X*Y2) - SQR(X2*Y)) )
-                * 2.0*std::log(X*Y2/(X2*Y+eps));
+                * 2.0*std::log(X*Y2/(X2*Y));
 
     kernel *= NF/NC;        // Divided by NC, as in the kernel we have as^2 nc nf/(8pi^4), but
                     // this kernel is multiplied yb as^2 nc^2/(8pi^4)
