@@ -20,10 +20,7 @@ if (OPENMP_FOUND)
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
-# Headers and libraries for AmplitudeLib v2
-# and Minuit and Cuba (if not available on system)
-link_directories("../amplitudelib_v2/build/lib/")
-include_directories("../amplitudelib_v2/")
+include_directories(".")
 
 add_subdirectory(src)
 

@@ -10,6 +10,8 @@ add_executable(
 	ic.cpp
 	ic_datafile.cpp
 	nlobk_config.cpp
+	../tools/tools.cpp
+	../tools/interpolation.cpp
 	${CMAKE_CURRENT_BINARY_DIR}/gitsha1.cpp
 	)
 
@@ -19,7 +21,7 @@ find_package(GSL REQUIRED)    #
 target_link_libraries(
 	nlobk
 	PRIVATE
-	amplitude
+#	amplitude
 	GSL::gsl
 	GSL::gslcblas
 )

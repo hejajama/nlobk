@@ -28,6 +28,8 @@ using std::isinf;
 using std::isnan;
 using std::abs;
 
+const bool LOG_INTERPOLATION = true;
+
 BKSolver::BKSolver(Dipole* d)
 {
     dipole=d;
@@ -85,7 +87,6 @@ int BKSolver::Solve(double maxy)
             double  nexty = y+step;
             while (y<nexty)
             {
-                cout << "Evolving y="<<y <<endl;
                 int status = gsl_odeiv_evolve_apply(e, c, s, &sys,
                     &y, nexty, &h, ampvec);
                 if (status != GSL_SUCCESS) {
@@ -172,7 +173,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         if (i==0) { dydt[i]=0; continue; } // do not evolve at the edge, numerically problematic (for some reason)
         // It seems to be much more efficeint to initialize interpolators locally
         // for each thread
-        Interpolator interp(rvals,nvals);
+        Interpolator interp(rvals,nvals, LOG_INTERPOLATION);
         interp.Initialize();
         interp.SetFreeze(true);
         interp.SetUnderflow(0);
@@ -193,7 +194,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         double nlo=0;
         if (!LO_BK and !NO_K2)
         {
-            Interpolator interp_s(rvals,yvals_s);
+            Interpolator interp_s(rvals,yvals_s, LOG_INTERPOLATION);
             interp_s.Initialize();
             interp_s.SetFreeze(true);
             interp_s.SetUnderflow(1.0);
