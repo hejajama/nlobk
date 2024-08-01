@@ -43,6 +43,7 @@ struct DEHelper{
 BKSolver::BKSolver()
 {
     alphas_scaling=1.0;
+    gsl_rng_env_setup ();
 }
 
 
@@ -733,8 +734,6 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
 
         size_t calls = MCINTPOINTS;
         
-
-        gsl_rng_env_setup ();
 
         T = gsl_rng_default;
         rnd = gsl_rng_alloc (T);
