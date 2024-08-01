@@ -344,9 +344,8 @@ double Inthelperf_lo_theta(double theta, void* p)
 
     // X = x - z = r - z
     double Xsqr = r*r + z*z - 2.0*r*z*std::cos(theta);
-    if (Xsqr < 0)
-        Xsqr=0; // In the very limiting case numerical errors may turn Xsqr<0, when
-            // we should have Xsqr \approx 0
+    if (Xsqr < eps*eps or z<eps or r<eps)
+        return 0;
     double X = std::sqrt( Xsqr );
     // Y = y - z = z
     double Y = z;
