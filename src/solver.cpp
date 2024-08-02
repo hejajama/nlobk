@@ -1,6 +1,6 @@
 /*
  * nloBK equation solver
- * Heikki Mäntysaari <heikki.mantysaari@jyu.fi>, 2013-2014
+ * Heikki Mäntysaari <heikki.mantysaari@jyu.fi>, 2013-2024
  */
 
 #include "solver.hpp"
@@ -22,7 +22,7 @@
 #include <gsl/gsl_errno.h>
 
 // Integration constants
-const double eps = 1e-30;
+const double eps = 1e-20; // Smallest allowed distance, if any coordinate sparation is smaller than this, contribution is neglected
 using namespace config;
 using std::isinf;
 using std::isnan;
@@ -285,8 +285,8 @@ double BKSolver::RapidityDerivative_lo(double r, Interpolator* dipole_interp, do
     gsl_integration_workspace *workspace 
      = gsl_integration_workspace_alloc(RINTPOINTS);
 
-    double minlnr = std::log( 0.5*dipole->MinR() );
-    double maxlnr = std::log( 2.0*dipole->MaxR() );
+    double minlnr = std::log( dipole->MinR() );
+    double maxlnr = std::log( dipole->MaxR() );
 
     int status; double  result, abserr;
     status=gsl_integration_qag(&fun, minlnr,
@@ -362,9 +362,25 @@ double Inthelperf_lo_theta(double theta, void* p)
     double N_Y = helper->dipole_interp->Evaluate(Y);
     double N_r = helper->dipole_interp->Evaluate(r);
 
+    if (N_X>1) N_X=1;
+    if (N_Y>1) N_Y=1;
+    if (N_r>1) N_r=1;
+
     if (!KINEMATICAL_CONSTRAINT)
-        return helper->solver->Kernel_lo(r, z, theta) * ( N_X + N_Y - N_r - N_X*N_Y );
+    {
+        double kernel = helper->solver->Kernel_lo(r, z, theta);
+        double dipole = N_X + N_Y - N_r - N_X*N_Y;
+
+        /* // Test for numerics, seems to be no sensivity to this cut
+        if (std::abs(kernel) > 1e5 and std::abs(dipole)<1e-5)
+        {
+            return 0;
+        }*/
+
+        return kernel*dipole;
     
+    }
+
     else
     {
         if (!config::EULER_METHOD)
@@ -422,7 +438,8 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     
     double result=0;
 
-    // Handle divergences
+    // Handle divergences. Note that Inthelperf_lo_theta already checks that X,Y,r are not zero, 
+    // so this should be an unnecessary check
     if (X<eps or Y<eps)
         return 0;
 
@@ -444,9 +461,9 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 
     double min = std::min(X, Y);
     if (r < min)
-{
-       min=r;
-}
+    {
+        min=r;
+    }
 
     double alphas_scale = 0;
 
@@ -580,18 +597,15 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     double singlelog_resum = 1.0;
     double singlelog_resum_expansion = 0;
     double minxy = std::min(X,Y);
-    if (std::abs(minxy) < eps) return 0; //minxy = eps;
     
     if (config::RESUM_SINGLE_LOG)
     {
-        
-        
         
         double alphabar = resummation_alphas*NC/M_PI;
         const double A1 = 11.0/12.0;
         //singlelog_resum = std::pow( config::KSUB * SQR(r/minxy), sign*A1*alphabar );
         singlelog_resum = std::exp( - alphabar * A1 * std::abs( std::log( config::KSUB * SQR(r/minxy) ) ) );
-
+               
         // remove as^2 part of the single log resummation
         // as it is part of the full NLO coming from K2
         //singlelog_resum_expansion = sign * alphabar * A1 * 2.0*std::log( std::sqrt(config::KSUB)*r/minxy );
@@ -929,6 +943,9 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
     // z - z'
     double z_m_z2 = std::sqrt( z*z + z2*z2 - 2.0*z*z2*std::cos(theta_z - theta_z2) );
 
+
+    if (X < eps or Y < eps or X2 < eps or Y2 < eps or z_m_z2 < eps)
+        return 0;
 
     // Check that we did not take a square root of a negative number. This should never be the case, but some floating point arithmetics
     // may result in such an error
