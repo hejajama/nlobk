@@ -51,7 +51,7 @@ namespace config
     enum RunningCouplingLO
     {
         FIXED_LO,
-        PARENT_LO,      // Parent dipole where all beta terms are included
+        PARENT_LO,      // Parent dipole 
         PARENT_BETA_LO, // Parent dipole, only renormalization scale term is included in as, the second beta term is explicit in the expression
         SMALLEST_LO,
         BALITSKY_LO,
@@ -81,10 +81,6 @@ namespace config
     };
     extern INTEGRATION_METHOD INTMETHOD_NLO;
 
-    extern bool LO_BK ;    // solve only LO BK
-
-    extern bool ONLY_NLO;   // do not keep as^1 terms
-
     extern bool FORCE_POSITIVE_N;   // Force N(r)>=0
 
 
@@ -93,26 +89,39 @@ namespace config
     extern bool ONLY_LNR;   // Keep only ln r^2 terms from nlo conformal dipole
     extern bool NO_LNR;     // Do not include ln r^2
 
-    extern bool RESUM_DLOG; // Resum double log
-    extern bool RESUM_SINGLE_LOG;
+    // Resummation options are encoded in the kernel inclusion enum below.
     
     enum SINGLELOG_RESUM_RC
     {
 		RESUM_RC_BALITSKY,
 		RESUM_RC_PARENT,
-        RESUM_RC_SMALLEST
+        RESUM_RC_SMALLEST,
+        RESUM_RC_FIXED
 	};
 	
 	extern SINGLELOG_RESUM_RC RESUM_RC;
 
-    extern bool NO_K2;      // Do not include K_2
+    // Kernel inclusion mode: choose which parts of the kernel to include
+    enum ORDER
+    {
+        LO,                         // LO only, no resummation
+        LO_RESUM_DLOG,              // LO with double-log resummation
+        LO_RESUM_DLOG_SLOG,         // LO with double-log and single-log resummation
+        NLO,                        // Full NLO (including K2/Kf), no resummation
+        NLO_RESUM_DLOG,             // Full NLO with double-log resummation
+        NLO_RESUM_DLOG_SLOG         // Full NLO with double-log and single-log resummation
+    };
+    extern ORDER Order;
 
-    extern bool ONLY_RESUM_DLOG; // Calculate contribution from resummation
+    // Helper function to check if kernel is LO-based (i.e. no explict K2 and Kf NLO parts)
+    inline bool IsLOKernel(ORDER kernel) {
+        return (kernel == LO || 
+                kernel == LO_RESUM_DLOG || 
+                kernel == LO_RESUM_DLOG_SLOG);
+    }
     
     extern double KSUB;	// Constant factor in the sigle log resummation log
     
-    extern bool ONLY_SUBTRACTION;	// Calculate only effect from subtraction
-
     extern bool ONLY_K1FIN; // Only K1fin contribution from K_1
     
     extern bool KINEMATICAL_CONSTRAINT; // Solve nonlocal kinematically constrained BK (LO part)

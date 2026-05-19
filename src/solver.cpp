@@ -21,6 +21,8 @@
 #include <gsl/gsl_monte_plain.h>
 #include <gsl/gsl_errno.h>
 
+
+
 // Integration constants
 const double eps = 1e-20; // Smallest allowed distance, if any coordinate sparation is smaller than this, contribution is neglected
 using namespace config;
@@ -193,7 +195,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         double lo = par->solver->RapidityDerivative_lo(dipole->RVal(i), &interp, y);
 
         double nlo=0;
-        if (!LO_BK and !NO_K2)
+        if ((config::Order == config::NLO || config::Order == config::NLO_RESUM_DLOG || config::Order == config::NLO_RESUM_DLOG_SLOG))
         {
             Interpolator interp_s(rvals,yvals_s, LOG_INTERPOLATION);
             interp_s.Initialize();
@@ -393,12 +395,14 @@ double Inthelperf_lo_theta(double theta, void* p)
          double sin_a = r/X * std::sin(theta);
         double x_m_z_dot_y_m_z = X*Y* std::cos( std::asin(sin_a));
 
-        //double delta012 = std::max(0.0, std::log( std::min(X*X, Y*Y) / (r*r) ) ); // (166)
-		double delta012 = std::max(0.0, std::log( std::abs(x_m_z_dot_y_m_z)/(r*r)) ); 
-		
+        double delta012 = std::max(0.0, std::log( std::min(X*X, Y*Y) / (r*r) ) ); // (166)
+		//double delta012 = std::max(0.0, std::log( std::abs(x_m_z_dot_y_m_z)/(r*r)) ); 
+
+
         double shifted_rapidity = helper->rapidity - delta012;
-        if (shifted_rapidity < 0)
-            return 0;   // Step function in (165)
+    if (shifted_rapidity < 0) return 0;
+  //      if (shifted_rapidity < 0) shifted_rapidity=0;
+//            return 0;   // Step function in (165)
         
         // Dipoles at shifter rapidity
         double s02 = 1.0 - helper->solver->GetDipole()->InterpolateN(X, shifted_rapidity);
@@ -436,7 +440,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     double X = std::sqrt(Xsqr); //std::sqrt( r*r + z*z - 2.0*r*z*std::cos(theta) );
     
     
-    double result=0;
+    double lo_kernel=0;
 
     // Handle divergences. Note that Inthelperf_lo_theta already checks that X,Y,r are not zero, 
     // so this should be an unnecessary check
@@ -447,14 +451,12 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     if (EQUATION == CONFORMAL_N4)
     {
         double lo=1.0;
-        if (config::ONLY_NLO)
-            lo=0;
-        result = FIXED_AS / (2.0*M_PI*M_PI) * r*r / (X*X * Y*Y);
-        if (LO_BK)
-            return result;
+        lo_kernel = FIXED_AS / (2.0*M_PI*M_PI) * r*r / (X*X * Y*Y);
+        if (config::IsLOKernel(config::Order))
+            return lo_kernel;
         else
-            result *= (lo - FIXED_AS * NC / (4.0*M_PI) * M_PI*M_PI/3.0);
-        return result;
+            lo_kernel *= (lo - FIXED_AS * NC / (4.0*M_PI) * M_PI*M_PI/3.0);
+        return lo_kernel;
     }
 
     // ************************************************** QCD
@@ -474,7 +476,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     {
         double alphas_y = Alphas(Y);
         double alphas_x = Alphas(X);
-        result = 
+        lo_kernel = 
          NC/(2.0*SQR(M_PI))*Alphas(r)
             * (
             SQR(r) / ( SQR(X) * SQR(Y)  )
@@ -485,12 +487,12 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     }
     else if (RC_LO == SMALLEST_LO)
     {
-        result = NC*Alphas(min) / (2.0*SQR(M_PI))*SQR(r/(X*Y ));
+        lo_kernel = NC*Alphas(min) / (2.0*SQR(M_PI))*SQR(r/(X*Y ));
         alphas_scale = min;
     }
     else if (RC_LO == PARENT_LO)
     {
-        result = NC*Alphas(r) / (2.0*SQR(M_PI)) * SQR(r/(X*Y ));
+        lo_kernel = NC*Alphas(r) / (2.0*SQR(M_PI)) * SQR(r/(X*Y ));
         alphas_scale = r;
     }
 	else if (RC_LO == FRAC_LO)
@@ -499,17 +501,17 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 		double asbar_r = Alphas(r)*NC/M_PI;
 		double asbar_x = Alphas(X)*NC/M_PI;
 		double asbar_y = Alphas(Y)*NC/M_PI;
-		result = 1.0/(2.0*M_PI) * std::pow(
+		lo_kernel = 1.0/(2.0*M_PI) * std::pow(
 			1.0/asbar_r + (SQR(X)-SQR(Y))/SQR(r) * (asbar_x - asbar_y)/(asbar_x * asbar_y) 		
 		, -1.0);
-		result = result * SQR(r / (X*Y ));
+		lo_kernel = lo_kernel * SQR(r / (X*Y ));
 		alphas_scale=r;	// this only affects K1_fin
 	}
 	else if (RC_LO == GUILLAUME_LO)
 	{
 		// 1708.06557 Eq. 169
 		double r_eff_sqr = r*r * std::pow( Y*Y / (X*X ), (X*X-Y*Y)/(r*r) );
-		result = NC*Alphas(std::sqrt(r_eff_sqr)) / (2.0*SQR(M_PI)) * SQR(r/(X*Y + 1e-40));
+		lo_kernel = NC*Alphas(std::sqrt(r_eff_sqr)) / (2.0*SQR(M_PI)) * SQR(r/(X*Y + 1e-40));
 		alphas_scale = std::sqrt(r_eff_sqr);
 
 	}
@@ -519,14 +521,16 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         return -1;
     }
    
-    if (isnan(result) or isinf(result))
+    if (isnan(lo_kernel) or isinf(lo_kernel))
 		{
 				//cerr << "Result " << result << " at r=" << r << ", z=" << z << endl;
-				result=0;
+				lo_kernel=0;
 		}
 
-    if (LO_BK)
-        return result;
+    // Return LO result if kernel is LO-only
+    // No resummations
+    if (config::Order == config::LO or config::Order == config::NLO)
+        return lo_kernel;
 
 
     ////// Resummations
@@ -535,38 +539,35 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         resummation_alphas = Alphas(r);
     else if (config::RESUM_RC == config::RESUM_RC_SMALLEST)
         resummation_alphas = Alphas(min);
+    else if (config::RESUM_RC == config::RESUM_RC_FIXED)
+        resummation_alphas=FIXED_AS;
     else if (config::RESUM_RC == config::RESUM_RC_BALITSKY)
-        cerr << "Check balitsky prescription resummation code! " << LINEINFO << endl;
+        cerr << "Check balitsky prescription in the resummation code! " << LINEINFO << endl;
     else
     {
         cerr << "Unknown resummation alphas scale! " << LINEINFO << endl;
         exit(1);
     }
+    // Determine resummation flags from kernel inclusion
+    bool resum_dlog = (config::Order == config::LO_RESUM_DLOG
+                        or config::Order == config::LO_RESUM_DLOG_SLOG
+                        or config::Order == config::NLO_RESUM_DLOG
+                        or config::Order == config::NLO_RESUM_DLOG_SLOG);
+    bool resum_slog = (config::Order == config::LO_RESUM_DLOG_SLOG
+                        or config::Order == config::NLO_RESUM_DLOG_SLOG);
+    
+    
 
-    if (config::ONLY_DOUBLELOG)
-    {  
-        return resummation_alphas*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y )
-                    * resummation_alphas * NC / (4.0*M_PI)
-                    * (- 2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r ) ) ;
-    }
+    double doublelog_resum=1.0; // Multiplies to LO kernel
 
-    double dlog = 1.0;
-    if (config::DOUBLELOG_LO_KERNEL == false or config::RESUM_DLOG == true or config::ONLY_K1FIN )
-        dlog=0.0;
-
-    double lo=1.0;
-    if (config::ONLY_NLO)
-        lo=0;
-
-    double resum=1.0;
-    if (config::RESUM_DLOG and r > 1.01*config::MINR)
+    if (resum_dlog and r > 1.01*config::MINR)
     {
         double x =  4.0*std::log(X/r) * std::log(Y/r) ; // rho^2 in Ref.
         if (x >=0)
         {            
             // argument to the Bessel function is 2sqrt(bar as * x)
             double as_x = std::sqrt( resummation_alphas*NC/M_PI * x );
-            resum = gsl_sf_bessel_J1(2.0*as_x) / as_x;
+            doublelog_resum = gsl_sf_bessel_J1(2.0*as_x) / as_x;
         }
         else // L_xzr L_yzr < 0
         {
@@ -582,12 +583,12 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
                 cerr << "GSL error " << status <<", result " << res.val << ", as_x=" << as_x << ", x=" << x << ", r=" << r<<", X=" << X << ", Y=" << Y << ": " << " z: " << z  << LINEINFO << endl;
                 return 0;
             }
-            resum = res.val / as_x; 
+            doublelog_resum = res.val / as_x; 
         }
 
-        if (isnan(resum))
+        if (isnan(doublelog_resum))
         {
-            resum =  1; //1.0;    // 0/0 -> 1 TODO: check
+            doublelog_resum =  1;  // 0/0 
         }
     }
 
@@ -595,10 +596,12 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 
     // Resum single logs
     double singlelog_resum = 1.0;
-    double singlelog_resum_expansion = 0;
+    // as part of the single log resummation, to be subtracted from 
+    // the resummation, as that is part of the NLO term in exact (eikonal) kinematics
+    double singlelog_resum_expansion = 0; 
     double minxy = std::min(X,Y);
     
-    if (config::RESUM_SINGLE_LOG)
+    if (resum_slog)
     {
         
         double alphabar = resummation_alphas*NC/M_PI;
@@ -612,40 +615,18 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         singlelog_resum_expansion = - alphabar * A1 * std::abs( 2.0 * std::log( std::sqrt(config::KSUB) * r/minxy ) ) ;
     }
 
-    // Effect of subtraction, parent dipole
-    if (config::ONLY_SUBTRACTION)
-    {
-        if (config::RESUM_RC == RESUM_RC_PARENT)
-            return resummation_alphas*NC/(2.0*M_PI*M_PI) * SQR(r/(X*Y)) * singlelog_resum_expansion;
-        else if (config::RESUM_RC == RESUM_RC_BALITSKY)
-            return result * singlelog_resum_expansion;
-    }
-
-    // resummation contribution
-    if (config::ONLY_RESUM_DLOG)
-        return result * (resum*singlelog_resum - 1.0);
-        //return (resum-1.0)*result;
-
-    
-
 
     if (EQUATION==QCD)
     {
-		if (RESUM_DLOG == false and RESUM_SINGLE_LOG==false)
-				return result;
-        
-        if (NO_K2 and (RESUM_DLOG or RESUM_SINGLE_LOG))
-        {
-            // Resummed K_1, no subtraction or other as^2 terms in K_1
-            return resum*singlelog_resum*result;
-        }
-        
         double lo_kernel = Alphas(alphas_scale)*NC/(2.0*M_PI*M_PI) * SQR( r / (X*Y)); // lo kernel with parent/smallest dipole
         double subtract = 0;
         if (config::RESUM_RC != RESUM_RC_BALITSKY)
             subtract = lo_kernel * singlelog_resum_expansion;
         else    // Balitsky
-            subtract = result * singlelog_resum_expansion;
+            subtract = lo_kernel * singlelog_resum_expansion;
+        
+        // If double logs are resummed, set coefficient of log^2 term to 0
+        double dlog =  resum_dlog ? 0 : 1;
 
         double k1fin = lo_kernel * Alphas(alphas_scale) * NC / (4.0*M_PI) 
                         * (
@@ -656,7 +637,24 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         if (config::ONLY_K1FIN)
             return k1fin;
 
-        result = lo*resum*singlelog_resum*result
+
+        if (resum_dlog == false and resum_slog==false)
+        {
+            if (KINEMATICAL_CONSTRAINT == true)
+            {
+                if (dlog) cerr << "NOTE: double log term is explicitly included together with the KCBK evolution!" << endl;
+                    return lo_kernel + k1fin;
+            }
+            else {
+				return lo_kernel;
+            }
+        }
+        
+        // Previously there was a "resummed-only" mode that returned only the
+        // resummed K1 contribution. That mode was removed to simplify the code.
+        
+       
+        double result = doublelog_resum*singlelog_resum*lo_kernel
                 - subtract   // remove as^2 part of single log resummation
                 + k1fin;
 
@@ -665,7 +663,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     }
     if (EQUATION==CONFORMAL_QCD)
     {
-        result = lo*result + Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
+        double result  = lo_kernel + Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
                     * Alphas(r) * NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0 * NF/NC );
         return result;
     }
@@ -673,14 +671,14 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     
     
 
-    if (isnan(result) or isinf(result))
+    if (isnan(lo_kernel) or isinf(lo_kernel))
     {
         cerr << "infnan " << LINEINFO << ", r=" << r << ", X=" << X << ", Y=" << Y << endl;
         exit(1);
     }
     
 
-    return result;
+    return lo_kernel;
 }
 
 

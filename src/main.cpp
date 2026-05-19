@@ -66,7 +66,6 @@ int main(int argc, char* argv[])
         cout << "-resumrc smallest,parent: running coupling scheme for resummation" << endl;
         cout << "-nlorc parent,smallest: running coupling scheme for as^2 terms" << endl;
         cout << "-lo: solve LO BK" << endl;
-        cout << "-only_nlo: keep only nlo terms" << endl;
         cout << "-nodlog: do not include double log term" << endl;
         cout << "-onlydlog: only include double log term" << endl;
         cout << "-onlylnr: only include lnr^2 NLO terms" << endl;
@@ -76,12 +75,9 @@ int main(int argc, char* argv[])
         cout << "-dndy: print dn/dy at initial condition and exit" << endl;
         cout << "-alphas_scaling C^2: set C^2 [setting mv/mve/mvgamma ic sets this also]" << endl;
         cout << "-ln_alphas_scaling ln C^2: set ln C^2" << endl;
-        cout << "-resum_dlog: resum double log when solving non-conformal dipole" << endl;
-        cout << "-resum_slog: resum single log" << endl;
         cout << "-Ksub value: K_sub for single log resummation" << endl;
         cout << "-only_subtraction: calculate only effect from subtraction" << endl;
-        cout << "-no_k2: do not include K_2 and K_f" << endl;
-        cout << "-ONLY_RESUM_DLOG: only calculate the effect of resummation" << endl;
+        cout << "-kernel_mode [n]lo[_resum_dlog][_resum_slog]: select kernel and resummation of double and single logs" << endl;
         cout << "-only_k1fin: include only k1fin contribution from k1" << endl;  
         cout << "-mcintpoints: set number of mc int points for the nlo part" << endl;
         cout << endl;
@@ -190,21 +186,12 @@ int main(int argc, char* argv[])
             }
         }
         else if (string(argv[i])=="-lo")
-            config::LO_BK = true;
-        else if (string(argv[i])=="-only_nlo")
-            config::ONLY_NLO = true;
-        else if (string(argv[i])=="-nodlog")
-        {
-            config::DOUBLELOG_LO_KERNEL = false;
-            config::ONLY_NLO = true;
-        }
-        else if (string(argv[i])=="-onlydlog")
-        {
-            config::ONLY_DOUBLELOG = true;
-            config::ONLY_NLO = true;
-        }
+            config::Order = config::LO;  // Legacy -lo flag
         else if (string(argv[i])=="-nlo")
-            config::LO_BK = false;
+        {  // Legacy -nlo flag; NLO is default in new kernel mode system
+            // Set to default NLO with full resummation
+            config::Order = config::NLO_RESUM_DLOG_SLOG;
+        }
         else if (string(argv[i])=="-nf")
         {
             config::NF = StrToInt(argv[i+1]);
@@ -224,37 +211,32 @@ int main(int argc, char* argv[])
         else if (string(argv[i])=="-onlylnr")
         {
             config::ONLY_LNR = true;
-            config::ONLY_NLO = true;
         }
         else if (string(argv[i])=="-nolnr")
         {
             config::NO_LNR = true;
-            config::ONLY_NLO = true;
         }
         else if (string(argv[i])=="-alphas_scaling")
             alphas_scaling = StrToReal(argv[i+1]);
 		else if (string(argv[i])=="-ln_alphas_scaling")
 			alphas_scaling = exp(StrToReal(argv[i+1]));
         
-        else if (string(argv[i])=="-resum_dlog")
-            config::RESUM_DLOG = true;
-
-        else if (string(argv[i])=="-resum_slog")
-            config::RESUM_SINGLE_LOG = true;
+        // -resum_dlog and -resum_slog removed; use -kernel_mode instead
         else if (string(argv[i])=="-Ksub")
 			config::KSUB = StrToReal(argv[i+1]);
-		
-        else if (string(argv[i])=="-no_k2")
-            config::NO_K2 = true;
-        
-        else if (string(argv[i])=="-only_subtraction")
-			config::ONLY_SUBTRACTION = true;
-
-        else if (string(argv[i])=="-ONLY_RESUM_DLOG")
+        else if (string(argv[i])=="-kernel_mode")
         {
-            config::ONLY_RESUM_DLOG = true;
-            config::RESUM_DLOG = true;
-            config::NO_K2 = true;
+            string v = string(argv[i+1]);
+            if (v=="lo") config::Order = config::LO;
+            else if (v=="lo_resum_dlog") config::Order = config::LO_RESUM_DLOG;
+            else if (v=="lo_resum_dlog_slog") config::Order = config::LO_RESUM_DLOG_SLOG;
+            else if (v=="nlo") config::Order = config::NLO;
+            else if (v=="nlo_resum_dlog") config::Order = config::NLO_RESUM_DLOG;
+            else if (v=="nlo_resum_dlog_slog" || v=="nlo_with_resum" || v=="nlo_with_resummation") config::Order = config::NLO_RESUM_DLOG_SLOG;
+            else {
+                cerr << "Unknown kernel_mode " << argv[i+1] << " at " << LINEINFO << endl;
+                return -1;
+            }
         }
         else if (string(argv[i])=="-only_k1fin")
             config::ONLY_K1FIN = true;
@@ -279,13 +261,11 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    if (config::ONLY_NLO == true and config::LO_BK == true)
-    {
-        cerr << "Asked to solve LO BK with only NLO terms!" << endl;
-        exit(1);
-    }
 
-    if (config::EQUATION != config::QCD and config::RESUM_DLOG == true)
+    // If double-log resummation requested via kernel mode, require QCD equation
+    if (config::EQUATION != config::QCD
+        && (config::Order == config::LO_RESUM_DLOG || config::Order == config::LO_RESUM_DLOG_SLOG
+            || config::Order == config::NLO_RESUM_DLOG || config::Order == config::NLO_RESUM_DLOG_SLOG))
     {
         cerr << "Asked to resum dlog and solve something else than qcd!" << endl;
         exit(1);

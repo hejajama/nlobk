@@ -25,10 +25,10 @@ namespace config
      double INTACCURACY=0.001;
      double MCINTACCURACY = 0.2;
      double MAXR = 30;          // Quite small, only for testing
-     double MINR=1e-4;
-     unsigned int RPOINTS =50; // Number of points in r grid
+     double MINR=1e-6;
+     unsigned int RPOINTS =100; // Number of points in r grid
 
-     size_t MCINTPOINTS = 2e4;
+     size_t MCINTPOINTS = 1e5;
 
 
      Equation EQUATION = QCD;  
@@ -40,36 +40,27 @@ namespace config
 
 
      RunningCouplingLO RC_LO = BALITSKY_LO;
-     RunningCouplingNLO RC_NLO = PARENT_NLO;
-
-     bool DOUBLELOG_LO_KERNEL = true; // include double log term from the LO kernel
-     bool ONLY_DOUBLELOG = false;
+     RunningCouplingNLO RC_NLO = SMALLEST_NLO;
+     SINGLELOG_RESUM_RC RESUM_RC = RESUM_RC_SMALLEST; // Resummation running coupling
 
      INTEGRATION_METHOD INTMETHOD_NLO = VEGAS;
 
-     bool LO_BK = false;    // solve only LO BK
+     // LO vs NLO controlled by KernelInclusion enum (KERNEL_LO_* = LO, KERNEL_NLO_* = NLO)
 
      bool FORCE_POSITIVE_N = true;
 
      bool DNDY=false;
 
-     bool ONLY_NLO = false;
+    bool ONLY_LNR = false;
+    bool NO_LNR = false;
 
-     bool ONLY_LNR = false;
-     bool NO_LNR = false;
-
-     bool RESUM_DLOG = false;
-     bool RESUM_SINGLE_LOG = false;
-
-     bool NO_K2 = false;
-
-     bool ONLY_RESUM_DLOG = false;
-     
-     bool ONLY_SUBTRACTION = false;
+    // Kernel inclusion default: full NLO with double+single log resummation
+    ORDER Order = NLO_RESUM_DLOG_SLOG;
+    
      
      double KSUB = 1.0;
      
-     SINGLELOG_RESUM_RC RESUM_RC = RESUM_RC_PARENT;
+     
 
      bool ONLY_K1FIN = false;
     
@@ -122,8 +113,8 @@ std::string NLOBK_CONFIG_STRING()
     
     if (EQUATION == QCD)
     {
-        if (DOUBLELOG_LO_KERNEL and !RESUM_DLOG) ss << ". QCD, Double log term in LO kernel included";
-        else ss << ". QCD, Double log term in LO kernel NOT included";
+        // Double-log behavior is controlled by kernel inclusion enum now.
+        ss << ". QCD";
     }
     else if (EQUATION == CONFORMAL_QCD) ss << ". Solving for CONFORMAL dipole";
     else if (EQUATION == CONFORMAL_N4) ss << ". Solving in N=4 for CONFORMAL dipole";
@@ -139,36 +130,43 @@ std::string NLOBK_CONFIG_STRING()
     //BKSolver sol;
     //ss << "# Alphas(r=1 GeV^-1) = " << sol.Alphas(1) << endl;
     ss << "# Order: ";
-    if (LO_BK)
+    bool is_lo = (config::Order == config::LO || config::Order == config::LO_RESUM_DLOG || config::Order == config::LO_RESUM_DLOG_SLOG);
+    if (is_lo)
     ss <<"LO";
     else
     ss << "NLO";
-    if (config::ONLY_NLO) ss << ", keeping only NLO terms";
-    if (config::RESUM_DLOG)
+    // Print resummation info based on kernel inclusion
+    bool resum_dlog = (config::Order == config::LO_RESUM_DLOG || config::Order == config::LO_RESUM_DLOG_SLOG
+                       || config::Order == config::NLO_RESUM_DLOG || config::Order == config::NLO_RESUM_DLOG_SLOG);
+    bool resum_slog = (config::Order == config::LO_RESUM_DLOG_SLOG || config::Order == config::NLO_RESUM_DLOG_SLOG);
+    if (resum_dlog)
     {
-        ss << endl;
-        ss << "# Resumming double log";
+        ss << endl << "# Resumming double log";
     }
-    if (config::RESUM_SINGLE_LOG)
+    if (resum_slog)
     {
-        ss << endl;
-        ss << "# Resumming single log, K_sub=" << config::KSUB;
+        ss << endl << "# Resumming single log, K_sub=" << config::KSUB;
         if (config::RESUM_RC == RESUM_RC_PARENT) ss << " resum rc: parent";
         else if (config::RESUM_RC == RESUM_RC_SMALLEST) ss << " resum rc: smallest";
         else if (config::RESUM_RC == RESUM_RC_BALITSKY) ss << " resum rc: balitsky";
         ss << endl;
     }
     
-    if (config::ONLY_SUBTRACTION)
-    ss << endl << "# Only including the subtraction term" << endl;
-    
+   
     if (config::ONLY_K1FIN)
     ss << endl << "# Only including K1fin part of K1" << endl;
     
-    if (config::NO_K2)
+    ss << ". Kernel inclusion: ";
+    switch (config::Order)
     {
-        ss << endl << "# Not including K2 and Kf" << endl;
+        case LO: ss << "LO only"; break;
+        case LO_RESUM_DLOG: ss << "LO with double-log resummation"; break;
+        case LO_RESUM_DLOG_SLOG: ss << "LO with double+single log resummation"; break;
+        case NLO: ss << "Full NLO (K2/Kf included), no resummation"; break;
+        case NLO_RESUM_DLOG: ss << "Full NLO with double-log resummation"; break;
+        case NLO_RESUM_DLOG_SLOG: ss << "Full NLO with double+single log resummation"; break;
     }
+    ss << endl;
     
     if (config::KINEMATICAL_CONSTRAINT)
         ss << endl << "# Kinematical constraint included" << endl;

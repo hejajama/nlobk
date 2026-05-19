@@ -233,6 +233,7 @@ int Dipole::Save(std::string filename)
         }
     }
     out.close();
+    return 0;
 }
 
 

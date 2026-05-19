@@ -43,11 +43,8 @@ int main()
     
     config::RC_LO = config::BALITSKY_LO; // Balitsky running coupling for LO kernel
     config::RESUM_RC = config::RESUM_RC_PARENT; // Parent dipole in the resummation
-    config::RESUM_DLOG = false; // Resum doulbe logs
-    config::RESUM_SINGLE_LOG = false; // Resum single logs
-    config::LO_BK = false;  // Solve LO BK with running coupling, overrides RESUM settings
     config::KSUB = 0.65;  // Optimal value for K_sub
-    config::NO_K2 = true;  // Do not include numerically demanding full NLO part
+    config::Order = config::LO;  // Do not include numerically demanding full NLO part (LO-only, no resummation)
     config::INTACCURACY = 0.02;
     config::MINR = 1e-5;
     config::MAXR = 25;
