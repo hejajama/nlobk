@@ -10,6 +10,7 @@
 
 #include <cmath>
 #include <ctime>
+#include <memory>
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_spline.h>
 #include <gsl/gsl_errno.h>
@@ -63,7 +64,7 @@ int BKSolver::Solve(double maxy)
     
 
     int vecsize = dipole->RPoints();
-    double *ampvec = new double [vecsize];
+    auto ampvec = std::make_unique<double[]>(vecsize);
     dipole->InitializeInterpolation(0); // Initialize interpolation at y=yvals[0]=0
     for (unsigned int rind=0; rind<vecsize; rind++)
     {
@@ -78,9 +79,9 @@ int BKSolver::Solve(double maxy)
     gsl_odeiv_system sys = {Evolve, NULL, static_cast<size_t>(vecsize), &help};
         
     const gsl_odeiv_step_type * T = gsl_odeiv_step_rk2; // rkf45 is more accurate 
-    gsl_odeiv_step * s    = gsl_odeiv_step_alloc (T, vecsize);
-    gsl_odeiv_control * c = gsl_odeiv_control_y_new (1e-6, 1e-4);    //abserr relerr   // paper: 0.0001
-    gsl_odeiv_evolve * e  = gsl_odeiv_evolve_alloc (vecsize);
+    std::unique_ptr<gsl_odeiv_step, decltype(&gsl_odeiv_step_free)> s(gsl_odeiv_step_alloc(T, vecsize), gsl_odeiv_step_free);
+    std::unique_ptr<gsl_odeiv_control, decltype(&gsl_odeiv_control_free)> c(gsl_odeiv_control_y_new(1e-6, 1e-4), gsl_odeiv_control_free);
+    std::unique_ptr<gsl_odeiv_evolve, decltype(&gsl_odeiv_evolve_free)> e(gsl_odeiv_evolve_alloc(vecsize), gsl_odeiv_evolve_free);
     double h = step;  // Initial ODE solver step size
     
     do
@@ -90,8 +91,8 @@ int BKSolver::Solve(double maxy)
             double  nexty = y+step;
             while (y<nexty)
             {
-                int status = gsl_odeiv_evolve_apply(e, c, s, &sys,
-                    &y, nexty, &h, ampvec);
+                int status = gsl_odeiv_evolve_apply(e.get(), c.get(), s.get(), &sys,
+                    &y, nexty, &h, ampvec.get());
                 if (status != GSL_SUCCESS) {
                     cerr << "Error in gsl_odeiv_evolve_apply at " << LINEINFO
                     << ": " << gsl_strerror(status) << " (" << status << ")"
@@ -114,19 +115,18 @@ int BKSolver::Solve(double maxy)
         else
         {
             // Own implementation of the euler method
-            double *dydt = new double[vecsize];
+            auto dydt = std::make_unique<double[]>(vecsize);
             
-            Evolve(y, ampvec, dydt, &help);
+            Evolve(y, ampvec.get(), dydt.get(), &help);
             for (int i=0; i<vecsize; i++)
             {
                 ampvec[i] = ampvec[i] + step * dydt[i];
             }
             y = y + step;
-            delete[] dydt;
 			cout << "# Evolved at y=" << y << endl;
         }
 
-        yind = dipole->AddRapidity(y, ampvec);
+        yind = dipole->AddRapidity(y, ampvec.get());
 
         if (tmp_output != "")
             dipole->Save(tmp_output);
@@ -137,10 +137,6 @@ int BKSolver::Solve(double maxy)
         
     } while (y < maxy);
 
-    gsl_odeiv_evolve_free (e);
-    gsl_odeiv_control_free (c);
-    gsl_odeiv_step_free (s);
-    delete[] ampvec;
     return 0;
 }
 
@@ -284,8 +280,8 @@ double BKSolver::RapidityDerivative_lo(double r, Interpolator* dipole_interp, do
     fun.params = &helper;
     fun.function = Inthelperf_lo_z;
 
-    gsl_integration_workspace *workspace 
-     = gsl_integration_workspace_alloc(RINTPOINTS);
+    std::unique_ptr<gsl_integration_workspace, decltype(&gsl_integration_workspace_free)> workspace(
+        gsl_integration_workspace_alloc(RINTPOINTS), gsl_integration_workspace_free);
 
     double minlnr = std::log( dipole->MinR() );
     double maxlnr = std::log( dipole->MaxR() );
@@ -293,8 +289,7 @@ double BKSolver::RapidityDerivative_lo(double r, Interpolator* dipole_interp, do
     int status; double  result, abserr;
     status=gsl_integration_qag(&fun, minlnr,
             maxlnr, 0, INTACCURACY, RINTPOINTS,
-            GSL_INTEG_GAUSS21, workspace, &result, &abserr);
-    gsl_integration_workspace_free(workspace);
+            GSL_INTEG_GAUSS21, workspace.get(), &result, &abserr);
 
     if (status==GSL_ESING)
     {
@@ -316,14 +311,13 @@ double Inthelperf_lo_z(double z, void* p)
     fun.function=Inthelperf_lo_theta;
     fun.params = helper;
     
-    gsl_integration_workspace *workspace 
-     = gsl_integration_workspace_alloc(THETAINTPOINTS);
+    std::unique_ptr<gsl_integration_workspace, decltype(&gsl_integration_workspace_free)> workspace(
+        gsl_integration_workspace_alloc(THETAINTPOINTS), gsl_integration_workspace_free);
 
     int status; double result, abserr;
     status=gsl_integration_qag(&fun, 0,
             M_PI, 0, INTACCURACY, THETAINTPOINTS,
-            GSL_INTEG_GAUSS21, workspace, &result, &abserr);
-    gsl_integration_workspace_free(workspace);
+            GSL_INTEG_GAUSS21, workspace.get(), &result, &abserr);
 
     if (status == GSL_ESING)
     {
@@ -718,12 +712,11 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
         fun.params = &helper;
         fun.function = Inthelperf_nlo_z;
         
-        gsl_integration_workspace *workspace 
-        = gsl_integration_workspace_alloc(RINTPOINTS);
+        std::unique_ptr<gsl_integration_workspace, decltype(&gsl_integration_workspace_free)> workspace(
+            gsl_integration_workspace_alloc(RINTPOINTS), gsl_integration_workspace_free);
         status=gsl_integration_qag(&fun, minlnr,
                 maxlnr, 0, INTACCURACY, RINTPOINTS,
-                GSL_INTEG_GAUSS15, workspace, &result, &abserr);
-        gsl_integration_workspace_free(workspace);
+                GSL_INTEG_GAUSS15, workspace.get(), &result, &abserr);
 
         if (status)
         {
@@ -741,19 +734,13 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
         fun.dim=dim;
         double min[4] = {minlnr, minlnr, 0, 0 };
         double max[4] = {maxlnr, maxlnr, 2.0*M_PI, 2.0*M_PI };
-        const gsl_rng_type *T;
-        gsl_rng *rnd;
+        const gsl_rng_type *T = gsl_rng_default;
+        std::unique_ptr<gsl_rng, decltype(&gsl_rng_free)> rnd(gsl_rng_alloc(T), gsl_rng_free);
 
         size_t calls = MCINTPOINTS;
         
 
-        T = gsl_rng_default;
-        rnd = gsl_rng_alloc (T);
-
-        time_t timer;
-        time(&timer);
-        int seconds=difftime(timer, 0);
-        gsl_rng_set(rnd, seconds);
+        gsl_rng_set(rnd.get(), static_cast<unsigned long>(time(NULL)));
 
         
         
@@ -761,32 +748,31 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
 
         if (INTMETHOD_NLO == VEGAS)
         {
-            gsl_monte_vegas_state *s = gsl_monte_vegas_alloc (dim);
-            gsl_monte_vegas_integrate (&fun, min, max, dim, calls/5, rnd, s,
+            std::unique_ptr<gsl_monte_vegas_state, decltype(&gsl_monte_vegas_free)> s(gsl_monte_vegas_alloc(dim), gsl_monte_vegas_free);
+            gsl_monte_vegas_integrate (&fun, min, max, dim, calls/5, rnd.get(), s.get(),
                                        &result, &abserr);
             //cout <<"#Warmup result " << result << " error " << abserr << endl; 
             double prevres = result;
             int iters=0;
             do
               {
-                gsl_monte_vegas_integrate (&fun, min, max, dim, calls, rnd, s,
+                gsl_monte_vegas_integrate (&fun, min, max, dim, calls, rnd.get(), s.get(),
                                            &result, &abserr);
                 //#pragma omp critical
-                //cout << "#Result(r=" << r <<") " << result << " err " << abserr << " relchange " << (result-prevres)/prevres << " chi^2 " << gsl_monte_vegas_chisq (s) << endl;
+                //cout << "#Result(r=" << r <<") " << result << " err " << abserr << " relchange " << (result-prevres)/prevres << " chi^2 " << gsl_monte_vegas_chisq (s.get()) << endl;
                 prevres=result;
                 iters++;
               }
-              while (((std::abs( abserr/result) > 0.2 or std::abs (gsl_monte_vegas_chisq (s) - 1.0) > 0.2 ) and iters<maxiter_vegas) or iters < 2 );
-            //while (fabs (gsl_monte_vegas_chisq (s) - 1.0) > 0.5);
+              while (((std::abs( abserr/result) > 0.2 or std::abs (gsl_monte_vegas_chisq (s.get()) - 1.0) > 0.2 ) and iters<maxiter_vegas) or iters < 2 );
+            //while (fabs (gsl_monte_vegas_chisq (s.get()) - 1.0) > 0.5);
             //#pragma omp critical
             if (iters>=maxiter_vegas and std::abs(abserr/result)>0.2 and dipole_interp->Evaluate(r)<0.99) // Print error messages in case of a more serios error
             {
-                cerr <<"# Integration failed at r=" << r <<", bestresult "<< result << " relerr " << abserr/result << " chi^2 "  << gsl_monte_vegas_chisq (s) << endl;
+                cerr <<"# Integration failed at r=" << r <<", bestresult "<< result << " relerr " << abserr/result << " chi^2 "  << gsl_monte_vegas_chisq (s.get()) << endl;
                 //result=0;
             }
             //else
-            //    cout << "Integration finished, r=" << r<< ", result " << result << " relerr " << abserr/result << " chi^2 "  << gsl_monte_vegas_chisq (s) << " (intpoints " << calls << ")" << endl;
-            gsl_monte_vegas_free(s);
+            //    cout << "Integration finished, r=" << r<< ", result " << result << " relerr " << abserr/result << " chi^2 "  << gsl_monte_vegas_chisq (s.get()) << " (intpoints " << calls << ")" << endl;
         
         }
         else if (INTMETHOD_NLO == MISER)
@@ -794,7 +780,7 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
         
             // plain or miser
             //gsl_monte_plain_state *s = gsl_monte_plain_alloc (4);
-            gsl_monte_miser_state *s = gsl_monte_miser_alloc (4);
+            std::unique_ptr<gsl_monte_miser_state, decltype(&gsl_monte_miser_free)> s(gsl_monte_miser_alloc(4), gsl_monte_miser_free);
             int iter=0;
             
             do
@@ -807,18 +793,16 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
                 }
                 //gsl_monte_plain_integrate
                 gsl_monte_miser_integrate
-                    (&fun, min, max, 4, calls, rnd, s,
+                    (&fun, min, max, 4, calls, rnd.get(), s.get(),
                                        &result, &abserr);
                     //if (std::abs(abserr/result)>0.2)
                           //cerr << "#r=" << r << " misermc integral failed, result " << result << " relerr " << std::abs(abserr/result) << ", again.... (iter " << iter << ")" << endl;
             } while (std::abs(abserr/result)>MCINTACCURACY);
             //gsl_monte_plain_free (s);
-            gsl_monte_miser_free(s);
             //cout <<"#Integration finished at r=" << r <<", result " << result << " relerr " << abserr/result << " intpoints " << calls << endl;
             
             
         }  
-        gsl_rng_free(rnd);      
            
     }
     
@@ -839,14 +823,13 @@ double Inthelperf_nlo_z(double z, void* p)
     fun.function=Inthelperf_nlo_theta_z;
     fun.params = helper;
     
-    gsl_integration_workspace *workspace 
-     = gsl_integration_workspace_alloc(THETAINTPOINTS);
+    std::unique_ptr<gsl_integration_workspace, decltype(&gsl_integration_workspace_free)> workspace(
+        gsl_integration_workspace_alloc(THETAINTPOINTS), gsl_integration_workspace_free);
 
     int status; double result, abserr;
     status=gsl_integration_qag(&fun, 0,
             2.0*M_PI, 0, INTACCURACY, THETAINTPOINTS,
-            GSL_INTEG_GAUSS15, workspace, &result, &abserr);
-    gsl_integration_workspace_free(workspace);
+            GSL_INTEG_GAUSS15, workspace.get(), &result, &abserr);
 
     if (status)
     {
@@ -864,8 +847,8 @@ double Inthelperf_nlo_theta_z(double theta, void* p)
     Inthelper_nlobk* helper = reinterpret_cast<Inthelper_nlobk*>(p);
     helper->theta_z=theta;
 
-    gsl_integration_workspace *workspace 
-     = gsl_integration_workspace_alloc(RINTPOINTS);
+    std::unique_ptr<gsl_integration_workspace, decltype(&gsl_integration_workspace_free)> workspace(
+        gsl_integration_workspace_alloc(RINTPOINTS), gsl_integration_workspace_free);
 
     gsl_function fun;
     fun.function=Inthelperf_nlo_z2;
@@ -877,8 +860,7 @@ double Inthelperf_nlo_theta_z(double theta, void* p)
     int status; double  result, abserr;
     status=gsl_integration_qag(&fun, minlnr,
             maxlnr, 0, INTACCURACY, RINTPOINTS,
-            GSL_INTEG_GAUSS15, workspace, &result, &abserr);
-    gsl_integration_workspace_free(workspace);
+            GSL_INTEG_GAUSS15, workspace.get(), &result, &abserr);
 
     if (status)
     {
@@ -900,14 +882,13 @@ double Inthelperf_nlo_z2(double z2, void* p)
     fun.function=Inthelperf_nlo_theta_z2;
     fun.params = helper;
     
-    gsl_integration_workspace *workspace 
-     = gsl_integration_workspace_alloc(THETAINTPOINTS);
+    std::unique_ptr<gsl_integration_workspace, decltype(&gsl_integration_workspace_free)> workspace(
+        gsl_integration_workspace_alloc(THETAINTPOINTS), gsl_integration_workspace_free);
 
     int status; double result, abserr;
     status=gsl_integration_qag(&fun, 0,
             2.0*M_PI, 0, INTACCURACY, THETAINTPOINTS,
-            GSL_INTEG_GAUSS15, workspace, &result, &abserr);
-    gsl_integration_workspace_free(workspace);
+            GSL_INTEG_GAUSS15, workspace.get(), &result, &abserr);
 
     if (status)
     {
