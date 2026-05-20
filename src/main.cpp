@@ -20,7 +20,7 @@
 
 using namespace std;
 
-string version = "0.01-dev";
+string version = "0.9";
 
 using namespace config;
 
@@ -66,10 +66,6 @@ int main(int argc, char* argv[])
         cout << "-resumrc smallest,parent: running coupling scheme for resummation" << endl;
         cout << "-nlorc parent,smallest: running coupling scheme for as^2 terms" << endl;
         cout << "-lo: solve LO BK" << endl;
-        cout << "-nodlog: do not include double log term" << endl;
-        cout << "-onlydlog: only include double log term" << endl;
-        cout << "-onlylnr: only include lnr^2 NLO terms" << endl;
-        cout << "-nolnr: do not include ln r^2 terms" << endl;
         cout << "-nf nf: set number of quark flavors" << endl;
         cout << "-nolimit: do not force N>=0" << endl;
         cout << "-dndy: print dn/dy at initial condition and exit" << endl;
@@ -77,8 +73,7 @@ int main(int argc, char* argv[])
         cout << "-ln_alphas_scaling ln C^2: set ln C^2" << endl;
         cout << "-Ksub value: K_sub for single log resummation" << endl;
         cout << "-only_subtraction: calculate only effect from subtraction" << endl;
-        cout << "-kernel_mode [n]lo[_resum_dlog][_resum_slog]: select kernel and resummation of double and single logs" << endl;
-        cout << "-only_k1fin: include only k1fin contribution from k1" << endl;  
+        cout << "-order [n]lo[_resum_dlog][_resum_slog]: select kernel and resummation of double and single logs" << endl; 
         cout << "-mcintpoints: set number of mc int points for the nlo part" << endl;
         cout << endl;
         return 0;
@@ -153,7 +148,7 @@ int main(int argc, char* argv[])
             }
 			else if (string(argv[i+1])=="guillaume")
 			{
-				config::RC_LO = config::GUILLAUME_LO;
+				config::RC_LO = config::BEUF_LO;
 			}
             else
             {
@@ -185,13 +180,6 @@ int main(int argc, char* argv[])
                 return 0;
             }
         }
-        else if (string(argv[i])=="-lo")
-            config::Order = config::LO;  // Legacy -lo flag
-        else if (string(argv[i])=="-nlo")
-        {  // Legacy -nlo flag; NLO is default in new kernel mode system
-            // Set to default NLO with full resummation
-            config::Order = config::NLO_RESUM_DLOG_SLOG;
-        }
         else if (string(argv[i])=="-nf")
         {
             config::NF = StrToInt(argv[i+1]);
@@ -207,24 +195,15 @@ int main(int argc, char* argv[])
 
         else if (string(argv[i])=="-dndy")
             config::DNDY = true;
-
-        else if (string(argv[i])=="-onlylnr")
-        {
-            config::ONLY_LNR = true;
-        }
-        else if (string(argv[i])=="-nolnr")
-        {
-            config::NO_LNR = true;
-        }
         else if (string(argv[i])=="-alphas_scaling")
             alphas_scaling = StrToReal(argv[i+1]);
 		else if (string(argv[i])=="-ln_alphas_scaling")
 			alphas_scaling = exp(StrToReal(argv[i+1]));
         
-        // -resum_dlog and -resum_slog removed; use -kernel_mode instead
+
         else if (string(argv[i])=="-Ksub")
 			config::KSUB = StrToReal(argv[i+1]);
-        else if (string(argv[i])=="-kernel_mode")
+        else if (string(argv[i])=="-order")
         {
             string v = string(argv[i+1]);
             if (v=="lo") config::Order = config::LO;
@@ -234,12 +213,10 @@ int main(int argc, char* argv[])
             else if (v=="nlo_resum_dlog") config::Order = config::NLO_RESUM_DLOG;
             else if (v=="nlo_resum_dlog_slog" || v=="nlo_with_resum" || v=="nlo_with_resummation") config::Order = config::NLO_RESUM_DLOG_SLOG;
             else {
-                cerr << "Unknown kernel_mode " << argv[i+1] << " at " << LINEINFO << endl;
+                cerr << "Unknown order " << argv[i+1] << " at " << LINEINFO << endl;
                 return -1;
             }
         }
-        else if (string(argv[i])=="-only_k1fin")
-            config::ONLY_K1FIN = true;
         else if (string(argv[i])=="-mcintpoints")
             config::MCINTPOINTS = StrToReal(argv[i+1]);
         
@@ -263,11 +240,9 @@ int main(int argc, char* argv[])
 
 
     // If double-log resummation requested via kernel mode, require QCD equation
-    if (config::EQUATION != config::QCD
-        && (config::Order == config::LO_RESUM_DLOG || config::Order == config::LO_RESUM_DLOG_SLOG
-            || config::Order == config::NLO_RESUM_DLOG || config::Order == config::NLO_RESUM_DLOG_SLOG))
+    if (config::EQUATION != config::QCD)
     {
-        cerr << "Asked to resum dlog and solve something else than qcd!" << endl;
+        cerr << "Conformal equation is not supported!" << endl;
         exit(1);
     }
 
@@ -279,16 +254,16 @@ int main(int argc, char* argv[])
     }
     
     cout << "# " << NLOBK_CONFIG_STRING() << endl;
-    cout << "#Initial condition is " << ic->GetString() << endl;
+    cout << "# Initial condition is " << ic->GetString() << endl;
 
     Dipole dipole(ic);
 
 
-    cout <<"# r grid size: " << dipole.RPoints() << " minr " << dipole.MinR() << " maxr " << dipole.MaxR() << endl;
+    cout <<"# r grid size: " << dipole.RPoints() << " minr " << dipole.MinR() << " maxr " << dipole.MaxR() << " [GeV^-1]" << endl;
 
 
     if (config::DNDY)
-        cout << "# r   dN/dy [K1]   dN/dy [K2]  N" << endl;
+        cout << "# r   dN/dy [K1]   dN/dy [K2+Kf]  N" << endl;
 
     BKSolver solver(&dipole);
     solver.SetAlphasScaling(alphas_scaling);

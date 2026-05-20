@@ -33,8 +33,9 @@ namespace config
 
      Equation EQUATION = QCD;  
 
-     double DE_SOLVER_STEP = 0.2; // 0.05 paperissa
-
+    double DE_SOLVER_STEP = 0.2; 
+    double DE_SOLVER_ABSERR = 1e-6;
+    double DE_SOLVER_RELERR = 1e-4;
 
      double FIXED_AS = 0.2;
 
@@ -45,26 +46,19 @@ namespace config
 
      INTEGRATION_METHOD INTMETHOD_NLO = VEGAS;
 
-     // LO vs NLO controlled by KernelInclusion enum (KERNEL_LO_* = LO, KERNEL_NLO_* = NLO)
-
      bool FORCE_POSITIVE_N = true;
+     bool SYMMETRIZE_Z_Z2_INTEGRATION = true;
 
      bool DNDY=false;
 
-    bool ONLY_LNR = false;
-    bool NO_LNR = false;
-
-    // Kernel inclusion default: full NLO with double+single log resummation
+     // Kernel inclusion default: full NLO with double+single log resummation
     ORDER Order = NLO_RESUM_DLOG_SLOG;
     
      
      double KSUB = 1.0;
      
-     
-
-     bool ONLY_K1FIN = false;
-    
-     bool KINEMATICAL_CONSTRAINT = false;
+         
+    bool KINEMATICAL_CONSTRAINT = false;
     
     bool EULER_METHOD = false;
 }
@@ -152,19 +146,16 @@ std::string NLOBK_CONFIG_STRING()
         ss << endl;
     }
     
-   
-    if (config::ONLY_K1FIN)
-    ss << endl << "# Only including K1fin part of K1" << endl;
-    
-    ss << ". Kernel inclusion: ";
+      
+    ss << "# Kernel : ";
     switch (config::Order)
     {
         case LO: ss << "LO only"; break;
         case LO_RESUM_DLOG: ss << "LO with double-log resummation"; break;
         case LO_RESUM_DLOG_SLOG: ss << "LO with double+single log resummation"; break;
-        case NLO: ss << "Full NLO (K2/Kf included), no resummation"; break;
-        case NLO_RESUM_DLOG: ss << "Full NLO with double-log resummation"; break;
-        case NLO_RESUM_DLOG_SLOG: ss << "Full NLO with double+single log resummation"; break;
+        case NLO: ss << "NLO (K2/Kf included), no resummation"; break;
+        case NLO_RESUM_DLOG: ss << "NLO with double-log resummation"; break;
+        case NLO_RESUM_DLOG_SLOG: ss << "NLO with double+single log resummation"; break;
     }
     ss << endl;
     

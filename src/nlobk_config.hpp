@@ -40,14 +40,21 @@ namespace config
     enum Equation
     {
         QCD,            // QCD NLO BK
-        CONFORMAL_QCD,  // Confromal NLO BK in QCD
-        CONFORMAL_N4    // Conformal NLO BK in N=4 SYM
+        CONFORMAL_QCD,  // Confromal NLO BK in QCD      NOTE: NOT SUPPORTED/TESTED
+        CONFORMAL_N4    // Conformal NLO BK in N=4 SYM. NOTE: NOT SUPPORTED/TESTED
     };
     extern Equation EQUATION;  
 
     extern double DE_SOLVER_STEP;
+    extern double DE_SOLVER_ABSERR;
+    extern double DE_SOLVER_RELERR;
 
-    // Alpha_s in LO part
+    // Symmetrize the z and z2 integrals in the NLO part
+    // should not have any effect on the result but can be used to check the numerics
+    // May result in more stable numerics
+    extern bool SYMMETRIZE_Z_Z2_INTEGRATION;
+    
+    // Alpha_s in LO-like part
     enum RunningCouplingLO
     {
         FIXED_LO,
@@ -55,8 +62,8 @@ namespace config
         PARENT_BETA_LO, // Parent dipole, only renormalization scale term is included in as, the second beta term is explicit in the expression
         SMALLEST_LO,
         BALITSKY_LO,
-		FRAC_LO, // fastest apparent convergence in 1507.03651
-		GUILLAUME_LO // 1708.06557
+		FAC_LO, // fastest apparent convergence in 1507.03651
+		BEUF_LO // 1708.06557
     };
     enum RunningCouplingNLO
     {
@@ -70,9 +77,6 @@ namespace config
     extern RunningCouplingLO RC_LO;
     extern RunningCouplingNLO RC_NLO;
 
-    extern bool DOUBLELOG_LO_KERNEL; // include double log term from the LO kernel
-    extern bool ONLY_DOUBLELOG;     // only include double log term
-
     enum INTEGRATION_METHOD
     {
         VEGAS,
@@ -85,9 +89,6 @@ namespace config
 
 
     extern bool DNDY;   // Print only dn/dy and exit
-
-    extern bool ONLY_LNR;   // Keep only ln r^2 terms from nlo conformal dipole
-    extern bool NO_LNR;     // Do not include ln r^2
 
     // Resummation options are encoded in the kernel inclusion enum below.
     
@@ -122,8 +123,7 @@ namespace config
     
     extern double KSUB;	// Constant factor in the sigle log resummation log
     
-    extern bool ONLY_K1FIN; // Only K1fin contribution from K_1
-    
+   
     extern bool KINEMATICAL_CONSTRAINT; // Solve nonlocal kinematically constrained BK (LO part)
     
     extern bool EULER_METHOD;    // Use Euler method instead of Runge Kutta, must be true if KINEMATICA_CONSTRAINT is used

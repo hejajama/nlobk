@@ -80,7 +80,7 @@ int BKSolver::Solve(double maxy)
         
     const gsl_odeiv_step_type * T = gsl_odeiv_step_rk2; // rkf45 is more accurate 
     std::unique_ptr<gsl_odeiv_step, decltype(&gsl_odeiv_step_free)> s(gsl_odeiv_step_alloc(T, vecsize), gsl_odeiv_step_free);
-    std::unique_ptr<gsl_odeiv_control, decltype(&gsl_odeiv_control_free)> c(gsl_odeiv_control_y_new(1e-6, 1e-4), gsl_odeiv_control_free);
+    std::unique_ptr<gsl_odeiv_control, decltype(&gsl_odeiv_control_free)> c(gsl_odeiv_control_y_new(config::DE_SOLVER_ABSERR, config::DE_SOLVER_RELERR), gsl_odeiv_control_free);
     std::unique_ptr<gsl_odeiv_evolve, decltype(&gsl_odeiv_evolve_free)> e(gsl_odeiv_evolve_alloc(vecsize), gsl_odeiv_evolve_free);
     double h = step;  // Initial ODE solver step size
     
@@ -431,7 +431,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     // X = x-z = r - z
     double Xsqr = r*r + z*z - 2.0*r*z*std::cos(theta);
     if (Xsqr <=0) return 0;
-    double X = std::sqrt(Xsqr); //std::sqrt( r*r + z*z - 2.0*r*z*std::cos(theta) );
+    double X = std::sqrt(Xsqr); 
     
     
     double lo_kernel=0;
@@ -441,7 +441,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     if (X<eps or Y<eps)
         return 0;
 
-    // N=4 is easy as the coupling does not run
+    // N=4: coupling does not run
     if (EQUATION == CONFORMAL_N4)
     {
         double lo=1.0;
@@ -463,8 +463,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 
     double alphas_scale = 0;
 
-    // Fixed as or Balitsky
-    // Note: in the limit alphas(r)=const Balitsky -> Fixed coupling as
+   // Determine alpha_s scale and kernel according to the prescription
 
     if (RC_LO == BALITSKY_LO or RC_LO == FIXED_LO)
     {
@@ -477,7 +476,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
             + 1.0/SQR(Y)*(alphas_y/alphas_x - 1.0)
             + 1.0/SQR(X)*(alphas_x/alphas_y - 1.0)
             );
-        alphas_scale = r;
+        alphas_scale = r;   // Scale used to evaluate alpha_s in K1fin. Here our choice is to use the parent dipole, other option would be the smallest
     }
     else if (RC_LO == SMALLEST_LO)
     {
@@ -489,7 +488,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         lo_kernel = NC*Alphas(r) / (2.0*SQR(M_PI)) * SQR(r/(X*Y ));
         alphas_scale = r;
     }
-	else if (RC_LO == FRAC_LO)
+	else if (RC_LO == FAC_LO)
 	{
 		// 1507.03651, fastest apparent convergence
 		double asbar_r = Alphas(r)*NC/M_PI;
@@ -501,7 +500,7 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 		lo_kernel = lo_kernel * SQR(r / (X*Y ));
 		alphas_scale=r;	// this only affects K1_fin
 	}
-	else if (RC_LO == GUILLAUME_LO)
+	else if (RC_LO == BEUF_LO)
 	{
 		// 1708.06557 Eq. 169
 		double r_eff_sqr = r*r * std::pow( Y*Y / (X*X ), (X*X-Y*Y)/(r*r) );
@@ -536,7 +535,10 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     else if (config::RESUM_RC == config::RESUM_RC_FIXED)
         resummation_alphas=FIXED_AS;
     else if (config::RESUM_RC == config::RESUM_RC_BALITSKY)
+    {
         cerr << "Check balitsky prescription in the resummation code! " << LINEINFO << endl;
+        exit(1);
+    }
     else
     {
         cerr << "Unknown resummation alphas scale! " << LINEINFO << endl;
@@ -590,8 +592,8 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 
     // Resum single logs
     double singlelog_resum = 1.0;
-    // as part of the single log resummation, to be subtracted from 
-    // the resummation, as that is part of the NLO term in exact (eikonal) kinematics
+    // O(alpha_s) part of the single log resummation, to be subtracted from 
+    // the resummation contribution, as that is part of the NLO term in exact (eikonal) kinematics
     double singlelog_resum_expansion = 0; 
     double minxy = std::min(X,Y);
     
@@ -612,12 +614,9 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
 
     if (EQUATION==QCD)
     {
-        double lo_kernel = Alphas(alphas_scale)*NC/(2.0*M_PI*M_PI) * SQR( r / (X*Y)); // lo kernel with parent/smallest dipole
+        double lo_kernel_single_as = Alphas(alphas_scale)*NC/(2.0*M_PI*M_PI) * SQR( r / (X*Y)); // lo kernel with parent/smallest dipole
         double subtract = 0;
-        if (config::RESUM_RC != RESUM_RC_BALITSKY)
-            subtract = lo_kernel * singlelog_resum_expansion;
-        else    // Balitsky
-            subtract = lo_kernel * singlelog_resum_expansion;
+        subtract = lo_kernel_single_as * singlelog_resum_expansion;
         
         // If double logs are resummed, set coefficient of log^2 term to 0
         double dlog =  resum_dlog ? 0 : 1;
@@ -627,10 +626,6 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
                         67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0 * NF/NC
                         - dlog*2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r )
                         );
-
-        if (config::ONLY_K1FIN)
-            return k1fin;
-
 
         if (resum_dlog == false and resum_slog==false)
         {
@@ -806,12 +801,6 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
            
     }
     
-    
-
-    // used for arxiv version evolution for s
-	//result *= -SQR(FIXED_AS*NC) / ( 16.0*M_PI*M_PI*M_PI*M_PI);   // alpha_s^2 Nc^2/(16pi^4), alphas*nc/pi=ALPHABAR_s
-        // minus sign as we compute here evolution for S=1-N following ref 0710.4330
-    
     return result;
 }
 
@@ -937,7 +926,11 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
     if (EQUATION == QCD)
     {
         double k = solver->Kernel_nlo(r,X,Y,X2,Y2,z_m_z2);
-        double kswap = solver->Kernel_nlo(r,X2,Y2,X,Y,z_m_z2);
+
+        // z <->z', which also corresponds to X <-> X2, Y <-> Y2
+        // For better numerical stability one can try to compute the average of the two
+        // In practice this has a very small effect 
+        double kswap = solver->Kernel_nlo(r,X2,Y2,X,Y,z_m_z2); 
 
         
 
@@ -977,8 +970,12 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
 
 
 
+        
         //result = k*dipole;
-        result = (k*dipole + kswap*dipole_swap)/2.0;
+        if (config::SYMMETRIZE_Z_Z2_INTEGRATION)
+            result = (k*dipole + kswap*dipole_swap)/2.0;
+        else
+            result = k*dipole;  
 
         if (NF>0)
         {
@@ -995,7 +992,10 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
             double dipole_f_swap = dipole_interp->Evaluate(X2) - dipole_interp->Evaluate(X)
                 - dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(Y2) + dipole_interp->Evaluate(X)*dipole_interp->Evaluate(Y2);
             */
-            result += -(kernel_f*dipole_f + kernel_f_swap * dipole_f_swap)/2.0;     // Minus sign as the evolution is written for S and we solve N
+           if (config::SYMMETRIZE_Z_Z2_INTEGRATION)
+                result += -(kernel_f*dipole_f + kernel_f_swap * dipole_f_swap)/2.0;     // Minus sign as the evolution is written for S and we solve N
+            else
+                result += -kernel_f*dipole_f;     // Minus sign as the evolution is written for S and we solve N
 
         }
     }
@@ -1027,7 +1027,7 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
         
 
         /// Fermion part
-        if (NF > 0 and !ONLY_LNR)       // Do not include fermions if we want only ln r contribution!
+        if (NF > 0 )       // Do not include fermions if we want only ln r contribution!
         {
             double kernel_f = solver->Kernel_nlo_conformal_fermion(r,X,Y,X2,Y2,z_m_z2);
             double dipole_f = dipole_interp_s->Evaluate(Y) * ( dipole_interp_s->Evaluate(X2)
@@ -1207,15 +1207,8 @@ double BKSolver::Kernel_nlo_conformal_1(double r, double X, double Y, double X2,
     
 
     // Own result
-
-    if (config::ONLY_LNR)
-        return 2.0 * 2.0*std::log(r*z_m_z2/(X2*Y)) * SQR(r/(X*Y2*z_m_z2));  // only lnr
-
-    double lnr_multiplier = 1.0;
-    if (config::NO_LNR)
-        lnr_multiplier = 0;
     
-    result = lnr_multiplier*2.0 * 2.0*std::log(r*z_m_z2/(X2*Y)) + ( SQR(X*Y2) - SQR(X2*Y) + SQR(r*z_m_z2) ) / (SQR(X*Y2) - SQR(X2*Y) ) * 2.0*std::log(X*Y2/(X2*Y) );
+    result = 2.0 * 2.0*std::log(r*z_m_z2/(X2*Y)) + ( SQR(X*Y2) - SQR(X2*Y) + SQR(r*z_m_z2) ) / (SQR(X*Y2) - SQR(X2*Y) ) * 2.0*std::log(X*Y2/(X2*Y) );
     result *= SQR(r/(X*Y2*z_m_z2));
 
     result += -2.0/std::pow(z_m_z2, 4.0) + ( SQR(X*Y2) + SQR(X2*Y) - 4.0*SQR(r*z_m_z2) )/( std::pow(z_m_z2,4.0)*(SQR(X*Y2) - SQR(X2*Y) ) ) * 2.0*std::log(X*Y2/(X2*Y));
@@ -1292,14 +1285,7 @@ double BKSolver::Kernel_nlo_n4_sym(double r, double X, double Y, double X2, doub
 {
     double result=0;
 
-    if (config::ONLY_LNR)
-        return 2.0 * 2.0*std::log( r*z_m_z2/(X2*Y) ) * SQR(r/(X*Y2*z_m_z2));
-
-    double lnr = 1.0;
-    if (config::NO_LNR)
-        lnr=0;
-
-    result = 2.0 * lnr*2.0*std::log( r*z_m_z2/(X2*Y) )
+    result = 2.0 * 2.0*std::log( r*z_m_z2/(X2*Y) )
         + (1.0 + SQR(r*z_m_z2) / ( SQR(X*Y2) - SQR(X2*Y) )) * 2.0*std::log(X*Y2/(X2*Y) );
     result *= SQR(r/(X*Y2*z_m_z2));
 
