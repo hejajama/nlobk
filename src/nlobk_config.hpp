@@ -36,15 +36,6 @@ namespace config
 
     extern size_t MCINTPOINTS;
 
-    // Select what to solve
-    enum Equation
-    {
-        QCD,            // QCD NLO BK
-        CONFORMAL_QCD,  // Confromal NLO BK in QCD      NOTE: NOT SUPPORTED/TESTED
-        CONFORMAL_N4    // Conformal NLO BK in N=4 SYM. NOTE: NOT SUPPORTED/TESTED
-    };
-    extern Equation EQUATION;  
-
     extern double DE_SOLVER_STEP;
     extern double DE_SOLVER_ABSERR;
     extern double DE_SOLVER_RELERR;

@@ -30,9 +30,6 @@ namespace config
 
      size_t MCINTPOINTS = 1e5;
 
-
-     Equation EQUATION = QCD;  
-
     double DE_SOLVER_STEP = 0.2; 
     double DE_SOLVER_ABSERR = 1e-6;
     double DE_SOLVER_RELERR = 1e-4;
@@ -55,7 +52,7 @@ namespace config
     ORDER Order = NLO_RESUM_DLOG_SLOG;
     
      
-     double KSUB = 1.0;
+     double KSUB = 0.65;
      
          
     bool KINEMATICAL_CONSTRAINT = false;
@@ -80,7 +77,7 @@ std::string NLOBK_CONFIG_STRING()
     ss <<"UNKNOWN!";
     ss << ". K1 integration accuracy " << INTACCURACY ;
     ss<< ". LO Kernel RC: ";
-    if (RC_LO == FIXED_LO or EQUATION==CONFORMAL_N4)
+    if (RC_LO == FIXED_LO)
     ss << " fixed as=" << FIXED_AS;
     else if (RC_LO == SMALLEST_LO)
     ss << " smallest dipole";
@@ -94,7 +91,7 @@ std::string NLOBK_CONFIG_STRING()
     ss << " NO STRING IMPLEMENTED!";
     
     ss<< ". NLO Kernel RC: ";
-    if (RC_NLO == FIXED_NLO or EQUATION==CONFORMAL_N4)
+    if (RC_NLO == FIXED_NLO)
     ss << " fixed as=" << FIXED_AS;
     else if (RC_NLO == SMALLEST_NLO)
     ss << " smallest dipole";
@@ -105,14 +102,8 @@ std::string NLOBK_CONFIG_STRING()
     
     ss <<". Nc=" << NC << ", Nf=" << NF;
     
-    if (EQUATION == QCD)
-    {
-        // Double-log behavior is controlled by kernel inclusion enum now.
-        ss << ". QCD";
-    }
-    else if (EQUATION == CONFORMAL_QCD) ss << ". Solving for CONFORMAL dipole";
-    else if (EQUATION == CONFORMAL_N4) ss << ". Solving in N=4 for CONFORMAL dipole";
-    else ss << ". UNKNOWN EQUATION!!";
+    // Double-log behavior is controlled by kernel inclusion enum now.
+    ss << ". QCD";
     
     
     if (FORCE_POSITIVE_N)

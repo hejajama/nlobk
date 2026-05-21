@@ -59,9 +59,9 @@ int main(int argc, char* argv[])
     {
         cout <<"-ic FILE filename: set initial condition (default: MV)" << endl;
         cout << "-ic PARAM qsqr anomalous_dimension ln(e_c)" << endl; 
+        cout << "-order [n]lo[_resum_dlog][_resum_slog]: select kernel and resummation of double and single logs" << endl; 
         cout << "-maxy yval" << endl;
-        cout <<"-output filename_to_save_data" << endl;
-        cout << "-eq qcd,confqcd,n4: set equation to solve" << endl;
+        cout << "-output filename_to_save_data" << endl;
         cout << "-rc smallest,parent,parent_beta,fixed: set running coupling" << endl;
         cout << "-resumrc smallest,parent: running coupling scheme for resummation" << endl;
         cout << "-nlorc parent,smallest: running coupling scheme for as^2 terms" << endl;
@@ -71,9 +71,6 @@ int main(int argc, char* argv[])
         cout << "-dndy: print dn/dy at initial condition and exit" << endl;
         cout << "-alphas_scaling C^2: set C^2 [setting mv/mve/mvgamma ic sets this also]" << endl;
         cout << "-ln_alphas_scaling ln C^2: set ln C^2" << endl;
-        cout << "-Ksub value: K_sub for single log resummation" << endl;
-        cout << "-only_subtraction: calculate only effect from subtraction" << endl;
-        cout << "-order [n]lo[_resum_dlog][_resum_slog]: select kernel and resummation of double and single logs" << endl; 
         cout << "-mcintpoints: set number of mc int points for the nlo part" << endl;
         cout << endl;
         return 0;
@@ -110,20 +107,6 @@ int main(int argc, char* argv[])
             output = argv[i+1];
         else if (string(argv[i])=="-maxy")
             maxy = StrToReal(argv[i+1]);
-        else if (string(argv[i])=="-eq")
-        {
-            if (string(argv[i+1])=="qcd")
-                config::EQUATION = config::QCD;
-            else if (string(argv[i+1])=="confqcd")
-                config::EQUATION = config::CONFORMAL_QCD;
-            else if (string(argv[i+1])=="n4")
-                config::EQUATION = config::CONFORMAL_N4;
-            else
-            {
-                cerr << "Unknown equation " << argv[i+1] << "! " << LINEINFO;
-                return -1;
-            }
-        }
         else if (string(argv[i])=="-rc")
         {
             if (string(argv[i+1])=="parent")
@@ -237,15 +220,6 @@ int main(int argc, char* argv[])
         cerr << "Initial condition was not set!" << endl;
         return -1;
     }
-
-
-    // If double-log resummation requested via kernel mode, require QCD equation
-    if (config::EQUATION != config::QCD)
-    {
-        cerr << "Conformal equation is not supported!" << endl;
-        exit(1);
-    }
-
     if ( (config::RC_LO == FIXED_LO and config::RC_NLO != FIXED_NLO)
         or (config::RC_NLO == FIXED_NLO and config::RC_LO != FIXED_LO) )
     {

@@ -230,7 +230,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 
     }
     if (config::DNDY)
-        exit(1);
+        exit(0);
     return GSL_SUCCESS;
 }
 
@@ -441,18 +441,6 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     if (X<eps or Y<eps)
         return 0;
 
-    // N=4: coupling does not run
-    if (EQUATION == CONFORMAL_N4)
-    {
-        double lo=1.0;
-        lo_kernel = FIXED_AS / (2.0*M_PI*M_PI) * r*r / (X*X * Y*Y);
-        if (config::IsLOKernel(config::Order))
-            return lo_kernel;
-        else
-            lo_kernel *= (lo - FIXED_AS * NC / (4.0*M_PI) * M_PI*M_PI/3.0);
-        return lo_kernel;
-    }
-
     // ************************************************** QCD
 
     double min = std::min(X, Y);
@@ -612,50 +600,41 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
     }
 
 
-    if (EQUATION==QCD)
+    double lo_kernel_single_as = Alphas(alphas_scale)*NC/(2.0*M_PI*M_PI) * SQR( r / (X*Y)); // lo kernel with parent/smallest dipole
+    double subtract = 0;
+    subtract = lo_kernel_single_as * singlelog_resum_expansion;
+    
+    // If double logs are resummed, set coefficient of log^2 term to 0
+    double dlog =  resum_dlog ? 0 : 1;
+
+    double k1fin = lo_kernel * Alphas(alphas_scale) * NC / (4.0*M_PI) 
+                    * (
+                    67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0 * NF/NC
+                    - dlog*2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r )
+                    );
+
+    if (resum_dlog == false and resum_slog==false)
     {
-        double lo_kernel_single_as = Alphas(alphas_scale)*NC/(2.0*M_PI*M_PI) * SQR( r / (X*Y)); // lo kernel with parent/smallest dipole
-        double subtract = 0;
-        subtract = lo_kernel_single_as * singlelog_resum_expansion;
-        
-        // If double logs are resummed, set coefficient of log^2 term to 0
-        double dlog =  resum_dlog ? 0 : 1;
-
-        double k1fin = lo_kernel * Alphas(alphas_scale) * NC / (4.0*M_PI) 
-                        * (
-                        67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0 * NF/NC
-                        - dlog*2.0 * 2.0*std::log( X/r ) * 2.0*std::log( Y/r )
-                        );
-
-        if (resum_dlog == false and resum_slog==false)
+        if (KINEMATICAL_CONSTRAINT == true)
         {
-            if (KINEMATICAL_CONSTRAINT == true)
-            {
-                if (dlog) cerr << "NOTE: double log term is explicitly included together with the KCBK evolution!" << endl;
-                    return lo_kernel + k1fin;
-            }
-            else {
-				return lo_kernel;
-            }
+            if (dlog) cerr << "NOTE: double log term is explicitly included together with the KCBK evolution!" << endl;
+                return lo_kernel + k1fin;
         }
-        
-        // Previously there was a "resummed-only" mode that returned only the
-        // resummed K1 contribution. That mode was removed to simplify the code.
-        
-       
-        double result = doublelog_resum*singlelog_resum*lo_kernel
-                - subtract   // remove as^2 part of single log resummation
-                + k1fin;
+        else {
+			return lo_kernel;
+        }
+    }
+    
+    // Previously there was a "resummed-only" mode that returned only the
+    // resummed K1 contribution. That mode was removed to simplify the code.
+    
+   
+    double result = doublelog_resum*singlelog_resum*lo_kernel
+            - subtract   // remove as^2 part of single log resummation
+            + k1fin;
 
-        
-        return result;
-    }
-    if (EQUATION==CONFORMAL_QCD)
-    {
-        double result  = lo_kernel + Alphas(r)*NC/(2.0*M_PI*M_PI) * r*r / (X*X * Y*Y)
-                    * Alphas(r) * NC / (4.0*M_PI) * ( 67.0/9.0 - SQR(M_PI)/3.0 - 10.0/9.0 * NF/NC );
-        return result;
-    }
+    
+    return result;
 
     
     
@@ -923,9 +902,7 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
     } 
     double result=0;
 
-    if (EQUATION == QCD)
-    {
-        double k = solver->Kernel_nlo(r,X,Y,X2,Y2,z_m_z2);
+    double k = solver->Kernel_nlo(r,X,Y,X2,Y2,z_m_z2);
 
         // z <->z', which also corresponds to X <-> X2, Y <-> Y2
         // For better numerical stability one can try to compute the average of the two
@@ -977,10 +954,10 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
         else
             result = k*dipole;  
 
-        if (NF>0)
-        {
-            double kernel_f = solver->Kernel_nlo_fermion(r,X,Y,X2,Y2,z_m_z2);
-            double kernel_f_swap = solver->Kernel_nlo_fermion(r,X2,Y2,X,Y,z_m_z2);
+    if (NF>0)
+    {
+        double kernel_f = solver->Kernel_nlo_fermion(r,X,Y,X2,Y2,z_m_z2);
+        double kernel_f_swap = solver->Kernel_nlo_fermion(r,X2,Y2,X,Y,z_m_z2);
 
             double dipole_f = dipole_interp_s->Evaluate(Y) * ( dipole_interp_s->Evaluate(X2) - dipole_interp_s->Evaluate(X) );
             double dipole_f_swap = dipole_interp_s->Evaluate(Y2) * ( dipole_interp_s->Evaluate(X) - dipole_interp_s->Evaluate(X2) );
@@ -992,71 +969,10 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
             double dipole_f_swap = dipole_interp->Evaluate(X2) - dipole_interp->Evaluate(X)
                 - dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(Y2) + dipole_interp->Evaluate(X)*dipole_interp->Evaluate(Y2);
             */
-           if (config::SYMMETRIZE_Z_Z2_INTEGRATION)
-                result += -(kernel_f*dipole_f + kernel_f_swap * dipole_f_swap)/2.0;     // Minus sign as the evolution is written for S and we solve N
-            else
-                result += -kernel_f*dipole_f;     // Minus sign as the evolution is written for S and we solve N
-
-        }
-    }
-
-    // Evolution for conformal dipole
-    else if (EQUATION==CONFORMAL_QCD)
-    {
-        double k1 = solver->Kernel_nlo_conformal_1(r,X,Y,X2,Y2,z_m_z2);        
-    
-        double dipole1 = dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y2)
-            - dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(Y);
-        
-        
-        double k1_swap = solver->Kernel_nlo_conformal_1(r,X2,Y2,X,Y,z_m_z2);        
-    
-        double dipole1_swap = dipole_interp_s->Evaluate(X2) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y)
-            - dipole_interp_s->Evaluate(X2) * dipole_interp_s->Evaluate(Y2);
-
-            result = (k1*dipole1 + k1_swap * dipole1_swap)/2.0;
-
-        //double k2 = solver->Kernel_nlo_conformal_2(r,X,Y,X2,Y2,z_m_z2);
-        //double dipole2 = dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y2)
-        //    - dipole_interp_s->Evaluate(X2) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y);
-        //double k2_swap = solver->Kernel_nlo_conformal_2(r,X2,Y2,X,Y,z_m_z2);
-        //double dipole2_swap = dipole_interp_s->Evaluate(X2) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y)
-        //    - dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y2);
-
-        //result = (k1*dipole1 + k2*dipole2 + k1_swap*dipole1_swap + k2_swap*dipole2_swap)/2.0;
-        
-
-        /// Fermion part
-        if (NF > 0 )       // Do not include fermions if we want only ln r contribution!
-        {
-            double kernel_f = solver->Kernel_nlo_conformal_fermion(r,X,Y,X2,Y2,z_m_z2);
-            double dipole_f = dipole_interp_s->Evaluate(Y) * ( dipole_interp_s->Evaluate(X2)
-                                                                - dipole_interp_s->Evaluate(X) );
-
-            double kernel_f_swap = solver->Kernel_nlo_conformal_fermion(r,X2,Y2,X,Y,z_m_z2);
-            double dipole_f_swap = dipole_interp_s->Evaluate(Y2) * ( dipole_interp_s->Evaluate(X)
-                                                                - dipole_interp_s->Evaluate(X2) );
-
-            result += (kernel_f * dipole_f + kernel_f_swap * dipole_f_swap)/2.0;
-        }
-
-        result *= -1.0; // Minus sign as the evolution is written for S but we solve N = 1-S
-
-    }
-
-    else if (EQUATION == CONFORMAL_N4)
-    {
-        result = dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(z_m_z2) * dipole_interp_s->Evaluate(Y2)
-            - dipole_interp_s->Evaluate(X) * dipole_interp_s->Evaluate(Y);
-
-        result *= solver->Kernel_nlo_n4_sym(r,X,Y,X2,Y2,z_m_z2);
-
-        result *= -1.0; // Minus sign as the evolution is written for S but we solve N = 1-S
-    }
-
-    else
-    {
-        cerr << "Unknown equation to solve: " << EQUATION << endl;
+        if (config::SYMMETRIZE_Z_Z2_INTEGRATION)
+            result += -(kernel_f*dipole_f + kernel_f_swap * dipole_f_swap)/2.0;     // Minus sign as the evolution is written for S and we solve N
+        else
+            result += -kernel_f*dipole_f;     // Minus sign as the evolution is written for S and we solve N
     }
     
 
@@ -1065,36 +981,26 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
 
     // If the alphas scale is set by the smallest dipole, multiply the kernel here by as^2 and
     // other relevant factors
-    if (EQUATION == CONFORMAL_N4)
-        result *= SQR(FIXED_AS*NC)/(8.0*std::pow(M_PI, 4));
-        
-    else if (EQUATION == QCD or EQUATION == CONFORMAL_QCD)
+    if (RC_NLO == FIXED_NLO)
+        result *= SQR(FIXED_AS*NC) / (8.0*std::pow(M_PI,4) );
+    else if (RC_NLO == PARENT_NLO)
+        result *= SQR( solver->Alphas(r) * NC) / (8.0 * std::pow(M_PI, 4) );
+    else if (RC_NLO == SMALLEST_NLO)
     {
-        if (RC_NLO == FIXED_NLO)
-            result *= SQR(FIXED_AS*NC) / (8.0*std::pow(M_PI,4) );
-        else if (RC_NLO == PARENT_NLO)
-            result *= SQR( solver->Alphas(r) * NC) / (8.0 * std::pow(M_PI, 4) );
-        else if (RC_NLO == SMALLEST_NLO)
-        {
-            double min_size = r;
-            if (X < min_size) min_size = X;
-            if (Y < min_size) min_size = Y;
-            if (X2 < min_size) min_size=X2;
-            if (Y2 < min_size) min_size = Y2;
-            if (z_m_z2 < min_size) min_size = z_m_z2;
+        double min_size = r;
+        if (X < min_size) min_size = X;
+        if (Y < min_size) min_size = Y;
+        if (X2 < min_size) min_size=X2;
+        if (Y2 < min_size) min_size = Y2;
+        if (z_m_z2 < min_size) min_size = z_m_z2;
 
-            result *= SQR( solver->Alphas(min_size) * NC) / (8.0 * std::pow(M_PI, 4) );   
-        }
-        else 
-        {
-            cerr << "Unknown NLO kernel alphas! " << LINEINFO << endl;
-            return -1;
-        }
-
-
+        result *= SQR( solver->Alphas(min_size) * NC) / (8.0 * std::pow(M_PI, 4) );   
     }
     else
-        cerr << "WTF! " << LINEINFO << endl;
+    {
+        cerr << "Unknown NLO kernel alphas! " << LINEINFO << endl;
+        return -1;
+    }
     
     
     
@@ -1186,111 +1092,6 @@ double BKSolver::Kernel_nlo_fermion(double r, double X, double Y, double X2, dou
         
 
     return kernel;
-}
-
-/***************************************************
-* Conformal kernels
-* Note that as^2 nc^2 / (8pi^4) is taken out from the kernels
-****************************************************/
-double BKSolver::Kernel_nlo_conformal_1(double r, double X, double Y, double X2, double Y2, double z_m_z2)
-{
-    double result = 0;
-
-    
-    // TEST
-    // ok, but numerically more unstable
-    /*result = Kernel_nlo(r,X,Y,X2,Y2,z_m_z2);
-    result += 2.0 * 2.0*std::log(r*z_m_z2/(X2*Y)) * SQR(r/(X*Y2*z_m_z2));
-    return result;
-    */
-
-    
-
-    // Own result
-    
-    result = 2.0 * 2.0*std::log(r*z_m_z2/(X2*Y)) + ( SQR(X*Y2) - SQR(X2*Y) + SQR(r*z_m_z2) ) / (SQR(X*Y2) - SQR(X2*Y) ) * 2.0*std::log(X*Y2/(X2*Y) );
-    result *= SQR(r/(X*Y2*z_m_z2));
-
-    result += -2.0/std::pow(z_m_z2, 4.0) + ( SQR(X*Y2) + SQR(X2*Y) - 4.0*SQR(r*z_m_z2) )/( std::pow(z_m_z2,4.0)*(SQR(X*Y2) - SQR(X2*Y) ) ) * 2.0*std::log(X*Y2/(X2*Y));
-
-    return result;
-    
-    
-
-    // Original conformal bk paper:
-    /*
-	
-    result = ( SQR(r/z_m_z2) * (1.0/SQR(X*Y2) - 1.0/SQR(X2*Y) )
-                + std::pow(r,4) / ( SQR(X*Y2) - SQR(X2*Y) ) * ( 1.0/SQR(X*Y2) + 1.0/SQR(X2*Y) )
-                    + 2.0*(SQR(X*Y2) + SQR(X2*Y) - 4.0*SQR(r*z_m_z2) )/( std::pow(z_m_z2,4) * (SQR(X*Y2) - SQR(X2*Y) ) )    )
-                * 2.0*std::log(X*Y2/(X2*Y)) ;
-                
-    
-    result += -4.0/std::pow(z_m_z2,4) + 2.0*SQR(r/(z_m_z2*X*Y2)) * 2.0*std::log(r*z_m_z2/(X2*Y))
-                                      + 2.0*SQR(r/(z_m_z2*X2*Y)) * 2.0*std::log(r*z_m_z2/(X*Y2));
-    
-    
-    if (isinf(result) or isnan(result))
-        return 0;
-
-    result /= 2.0;      // Conformal kernel is multiplied by as^2 Nc^2/(8pi^4) in the Inthelperf_nlo function,
-                        // but as the gluon part has prefactor as^2 Nc^2/(8pi^4), conformal kernels 1 and 2 are
-                        // divided by 2 here
-    return result;
-    */
-}
-
-
-double BKSolver::Kernel_nlo_conformal_2(double r, double X, double Y, double X2, double Y2, double z_m_z2)
-{
-    //Multiplied by S(X)S(z-z')S(Y')-S(X')S(z-z')S(Y), in original conformal bk paper, not in my calculation
-
-    return 0;
-
-    /*
-    
-    double result = 0;
-    result = (SQR(r/(z_m_z2*X*Y2)) + std::pow(r,4)/(SQR(X*Y2)*(SQR(X*Y2) - SQR(X2*Y) ) )  ) * 2.0*std::log(X*Y2/(X2*Y));
-    result += 2.0*SQR(r/(z_m_z2*X*Y2)) * 2.0*std::log( r*z_m_z2 / (X2*Y) );
-
-    result /= 2.0;      // Conformal kernel is multiplied by as^2 Nc^2/(8pi^4) in the Inthelperf_nlo function,
-                        // but as the gluon part has prefactor as^2 Nc^2/(8pi^4), conformal kernels 1 and 2 are
-                        // divided by 2 here
-    return result;
-    */
-    
-}
-
-double BKSolver::Kernel_nlo_conformal_fermion(double r, double X, double Y, double X2, double Y2, double z_m_z2)
-{
-
-    double result=0;
-    result = 2.0 - ( SQR(X*Y2) + SQR(X2*Y) - SQR(r*z_m_z2) ) / ( SQR(X*Y2) - SQR(X2*Y) )
-                    * 2.0*std::log(  X*Y2/(X2*Y) );
-
-    result *= 1.0 / std::pow(z_m_z2, 4);
-
-    result *= NF/NC;        // Divided by NC, as in the kernel we have as^2 nc nf/(8pi^4), but
-                    // this kernel is multiplied yb as^2 nc^2/(8pi^4)
-
-    return result;
-}
-
-
-
-/***************************************************
- * N=4 SYM kernel
- **************************************************/
-double BKSolver::Kernel_nlo_n4_sym(double r, double X, double Y, double X2, double Y2, double z_m_z2)
-{
-    double result=0;
-
-    result = 2.0 * 2.0*std::log( r*z_m_z2/(X2*Y) )
-        + (1.0 + SQR(r*z_m_z2) / ( SQR(X*Y2) - SQR(X2*Y) )) * 2.0*std::log(X*Y2/(X2*Y) );
-    result *= SQR(r/(X*Y2*z_m_z2));
-
-    return result;
-
 }
 
 ////////////////////////////////////////////////
