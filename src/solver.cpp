@@ -8,7 +8,9 @@
 
 #include "nlobk_config.hpp"
 
+#include <atomic>
 #include <cmath>
+#include <cstdlib>
 #include <ctime>
 #include <memory>
 #include <gsl/gsl_integration.h>
@@ -32,6 +34,27 @@ using std::isnan;
 using std::abs;
 
 const bool LOG_INTERPOLATION = true;
+
+namespace {
+gsl_rng* GetThreadLocalRng()
+{
+    static std::atomic<unsigned long> seed_counter(1);
+    static const unsigned long base_seed = []() {
+        const char* env_seed = std::getenv("NLOBK_RNG_SEED");
+        if (env_seed != nullptr)
+            return std::strtoul(env_seed, nullptr, 10);
+        return static_cast<unsigned long>(std::time(nullptr));
+    }();
+
+    thread_local std::unique_ptr<gsl_rng, decltype(&gsl_rng_free)> rng(nullptr, gsl_rng_free);
+    if (!rng)
+    {
+        rng.reset(gsl_rng_alloc(gsl_rng_default));
+        gsl_rng_set(rng.get(), base_seed + seed_counter.fetch_add(1));
+    }
+    return rng.get();
+}
+}
 
 BKSolver::BKSolver(Dipole* d)
 {
@@ -708,13 +731,9 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
         fun.dim=dim;
         double min[4] = {minlnr, minlnr, 0, 0 };
         double max[4] = {maxlnr, maxlnr, 2.0*M_PI, 2.0*M_PI };
-        const gsl_rng_type *T = gsl_rng_default;
-        std::unique_ptr<gsl_rng, decltype(&gsl_rng_free)> rnd(gsl_rng_alloc(T), gsl_rng_free);
+        gsl_rng* rnd = GetThreadLocalRng();
 
         size_t calls = MCINTPOINTS;
-        
-
-        gsl_rng_set(rnd.get(), static_cast<unsigned long>(time(NULL)));
 
         
         
@@ -723,14 +742,14 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
         if (INTMETHOD_NLO == VEGAS)
         {
             std::unique_ptr<gsl_monte_vegas_state, decltype(&gsl_monte_vegas_free)> s(gsl_monte_vegas_alloc(dim), gsl_monte_vegas_free);
-            gsl_monte_vegas_integrate (&fun, min, max, dim, calls/5, rnd.get(), s.get(),
+            gsl_monte_vegas_integrate (&fun, min, max, dim, calls/5, rnd, s.get(),
                                        &result, &abserr);
             //cout <<"#Warmup result " << result << " error " << abserr << endl; 
             double prevres = result;
             int iters=0;
             do
               {
-                gsl_monte_vegas_integrate (&fun, min, max, dim, calls, rnd.get(), s.get(),
+                                gsl_monte_vegas_integrate (&fun, min, max, dim, calls, rnd, s.get(),
                                            &result, &abserr);
                 //#pragma omp critical
                 //cout << "#Result(r=" << r <<") " << result << " err " << abserr << " relchange " << (result-prevres)/prevres << " chi^2 " << gsl_monte_vegas_chisq (s.get()) << endl;
@@ -767,7 +786,7 @@ double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, I
                 }
                 //gsl_monte_plain_integrate
                 gsl_monte_miser_integrate
-                    (&fun, min, max, 4, calls, rnd.get(), s.get(),
+                    (&fun, min, max, 4, calls, rnd, s.get(),
                                        &result, &abserr);
                     //if (std::abs(abserr/result)>0.2)
                           //cerr << "#r=" << r << " misermc integral failed, result " << result << " relerr " << std::abs(abserr/result) << ", again.... (iter " << iter << ")" << endl;
