@@ -38,9 +38,9 @@ class BKSolver
 
         void SetTmpOutput(std::string fname);
     private:
-        double alphas_scaling;
+        double alphas_scaling=1;
         Dipole* dipole;
-        std::string tmp_output;         // File which is updated along with the evolution, if empty no temporary results are saved
+        std::string tmp_output="";         // File which is updated along with the evolution, if empty no temporary results are saved
 
 };
 

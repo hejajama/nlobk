@@ -28,8 +28,12 @@ Dipole::Dipole(InitialCondition* ic_)
     // Initialize rvals
     double step = std::pow(MAXR/MINR, 1.0/RPOINTS);
     std::vector<double> initial_amplitude;
-    for (double r=MINR; r<=MAXR; r*=step)
+    // Build the logarithmic grid with deterministic indexing
+    rvals.reserve(RPOINTS + 1);
+    initial_amplitude.reserve(RPOINTS + 1);
+    for (unsigned int i=0; i<=RPOINTS; i++)
     {
+        double r = MINR * std::pow(step, i);
         rvals.push_back(r);
         initial_amplitude.push_back( ic->DipoleAmplitude(r) );
     }
@@ -248,7 +252,7 @@ double Dipole::MaxR()
 
 unsigned int Dipole::RPoints()
 {
-    return rvals.size()-1;
+    return rvals.size();
 }
 
 unsigned int Dipole::YPoints()

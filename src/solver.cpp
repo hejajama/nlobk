@@ -37,6 +37,7 @@ BKSolver::BKSolver(Dipole* d)
 {
     dipole=d;
     tmp_output = "";
+    gsl_rng_env_setup ();
 }
 
 struct DEHelper{
@@ -45,7 +46,6 @@ struct DEHelper{
 
 BKSolver::BKSolver()
 {
-    alphas_scaling=1.0;
     gsl_rng_env_setup ();
 }
 
