@@ -648,10 +648,9 @@ double BKSolver::Kernel_lo(double r, double z, double theta)
         }
     }
     
-    // Previously there was a "resummed-only" mode that returned only the
-    // resummed K1 contribution. That mode was removed to simplify the code.
-    
-   
+   if (config::IsLOKernel(config::Order)) return doublelog_resum*singlelog_resum*lo_kernel;
+
+   // Doing full NLO BK, so include explicit as^2 terms too (K1fin, Ksub)
     double result = doublelog_resum*singlelog_resum*lo_kernel
             - subtract   // remove as^2 part of single log resummation
             + k1fin;
