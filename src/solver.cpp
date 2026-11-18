@@ -201,7 +201,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         
         //if (dipole->RVal(i) < 0.001)
         //    continue;
-        if (amplitude[i] > 0.99999)
+        if (amplitude[i] > 0.99999 and dipole->RVal(i) > 100)
         {
             dydt[i]=0;
             continue;
@@ -235,7 +235,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         if (std::abs(dydt[i]) > 5*config::DE_SOLVER_STEP*amplitude[i])
         {
             #pragma critical
-            cout <<"# Warning: y="<<y<<", r="<< dipole->RVal(i) <<", got (dN/dy)/N = " << dydt[i]/amplitude[i]<<", N=" << amplitude[i] <<", lo=" << lo <<", nlo=" << nlo <<", a smaller step size might be required" 
+            cerr <<"# Warning: y="<<y<<", r="<< dipole->RVal(i) <<", got (dN/dy)/N = " << dydt[i]/amplitude[i]<<", N=" << amplitude[i] <<", lo=" << lo <<", nlo=" << nlo <<", a smaller step size might be required" 
 << endl;
         } 
 

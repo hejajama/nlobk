@@ -166,7 +166,7 @@ int main(int argc, char* argv[])
         else if (string(argv[i])=="-nf")
         {
             config::NF = StrToInt(argv[i+1]);
-            if (config::NF != 0 and config::NF != 3 and config::NF != 5)
+            if (config::NF != 0 and config::NF != 3 and config::NF != 4 and config::NF != 5)
             {
                 cerr << "Invalid Nf=" << config::NF << " " << LINEINFO << endl;
                 return -1;

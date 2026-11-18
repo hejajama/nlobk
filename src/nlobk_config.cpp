@@ -25,12 +25,12 @@ namespace config
      double INTACCURACY=0.001;
      double MCINTACCURACY = 0.2;
      double MAXR = 30;          // Quite small, only for testing
-     double MINR=1e-6;
+     double MINR=1e-5;
      unsigned int RPOINTS =100; // Number of points in r grid
 
      size_t MCINTPOINTS = 1e5;
 
-    double DE_SOLVER_STEP = 0.2; 
+    double DE_SOLVER_STEP = 0.05; 
     double DE_SOLVER_ABSERR = 1e-6;
     double DE_SOLVER_RELERR = 1e-4;
 
@@ -55,9 +55,9 @@ namespace config
      double KSUB = 0.65;
      
          
-    bool KINEMATICAL_CONSTRAINT = false;
+    bool KINEMATICAL_CONSTRAINT = true;
     
-    bool EULER_METHOD = false;
+    bool EULER_METHOD = true;
 }
 
 
