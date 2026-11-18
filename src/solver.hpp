@@ -28,7 +28,7 @@ class BKSolver
         
 
         double RapidityDerivative_lo(double r, Interpolator* dipole_interp, double rapidity=-1);
-        double RapidityDerivative_nlo(double r, Interpolator* dipole_interp, Interpolator* dipole_interp_s);
+        double RapidityDerivative_nlo(double r, Interpolator* dipole_interp);
 
         Dipole* GetDipole();
         

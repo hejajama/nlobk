@@ -170,8 +170,8 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
 	cout << "#Evolving, rapidity " << y << endl;
 
 
-    // Create interpolators for N(r) and S(r)=1-N(r)
-    std::vector<double> rvals,nvals,yvals_s;
+    // Create interpolator for N(r)
+    std::vector<double> rvals,nvals;
     double maxr_interp=-1; // at r>maxr N==1 and S==0
     for (int i=0; i<dipole->RPoints(); i++)
     {
@@ -181,11 +181,6 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         if (n>1.0) n=1.0;
         if (n<0 and config::FORCE_POSITIVE_N) n=0;
         nvals.push_back(n);
-        
-        double s = 1.0-amplitude[i];
-        if (s<0) s=0;
-        if (s>1 and config::FORCE_POSITIVE_N) s=1.0;
-        yvals_s.push_back(s);
     }
    // mitä jos setmax ja freezaa evoluutio isoilla dipoleilla?
 
@@ -216,13 +211,7 @@ int Evolve(double y, const double amplitude[], double dydt[], void *params)
         double nlo=0;
         if ((config::Order == config::NLO || config::Order == config::NLO_RESUM_DLOG || config::Order == config::NLO_RESUM_DLOG_SLOG))
         {
-            Interpolator interp_s(rvals,yvals_s, LOG_INTERPOLATION);
-            interp_s.Initialize();
-            interp_s.SetFreeze(true);
-            interp_s.SetUnderflow(1.0);
-            interp_s.SetOverflow(0.0);
-            //interp_s.SetMaxX(maxr_interp);
-            nlo = par->solver->RapidityDerivative_nlo(dipole->RVal(i), &interp, &interp_s);
+            nlo = par->solver->RapidityDerivative_nlo(dipole->RVal(i), &interp);
         }
 
         if (config::DNDY)
@@ -283,7 +272,6 @@ struct Inthelper_nlobk
     double z2;   // = y - z' = daughter dipole 2
     double theta_z2; // direction of w
     Interpolator* dipole_interp;
-    Interpolator* dipole_interp_s;  // interpolates S=1-N
     double rapidity; // Current rapidity
 };
 
@@ -421,16 +409,14 @@ double Inthelperf_lo_theta(double theta, void* p)
   //      if (shifted_rapidity < 0) shifted_rapidity=0;
 //            return 0;   // Step function in (165)
         
-        // Dipoles at shifter rapidity
-        double s02 = 1.0 - helper->solver->GetDipole()->InterpolateN(X, shifted_rapidity);
-        double s12 = 1.0 - helper->solver->GetDipole()->InterpolateN(Y, shifted_rapidity);
-        double s01 = 1.0 - N_r;
+        // Dipoles at shifted rapidity
+        double n02 = helper->solver->GetDipole()->InterpolateN(X, shifted_rapidity);
+        double n12 = helper->solver->GetDipole()->InterpolateN(Y, shifted_rapidity);
 
+        // -S02 S12 + S01 written in terms of N to avoid cancellations when N is small
+        double dipole = n02 + n12 - n02*n12 - N_r;
 
-//		if (-s02*s12 + s01 < 0 and r>0.1)
-//			cout << "Dipole part " << -s02*s12 + s01 << " at r " << r << " shifter rapidity " << shifted_rapidity << " rapidity " << helper->rapidity << " kernel " << helper->solver->Kernel_lo(r, z, theta) << " s012 " << -s02*s12 << " s01 " << s01 <<   endl;
-        
-        return helper->solver->Kernel_lo(r, z, theta) * ( -s02*s12 + s01);
+        return helper->solver->Kernel_lo(r, z, theta) * dipole;
         
     }
 }
@@ -684,17 +670,16 @@ double Inthelperf_nlo_z(double v, void* p);
 double Inthelperf_nlo_theta_z(double theta, void* p);
 double Inthelperf_nlo_z2(double v, void* p);
 double Inthelperf_nlo_theta_z2(double theta, void* p);
-double Inthelperf_nlo(double r, double z, double theta_z, double z2, double theta_z2, BKSolver* solver, Interpolator* dipole_interp, Interpolator* dipole_interp_s);
+double Inthelperf_nlo(double r, double z, double theta_z, double z2, double theta_z2, BKSolver* solver, Interpolator* dipole_interp);
 double Inthelperf_nlo_mc(double* vec, size_t dim, void* p);
 
-double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp, Interpolator* dipole_interp_s)
+double BKSolver::RapidityDerivative_nlo(double r, Interpolator* dipole_interp)
 {
     
     Inthelper_nlobk helper;
     helper.solver=this;
     helper.r=r;
     helper.dipole_interp = dipole_interp;
-    helper.dipole_interp_s = dipole_interp_s;
     
     
     double minlnr = std::log( 0.5*dipole->MinR() );
@@ -890,11 +875,11 @@ double Inthelperf_nlo_z2(double z2, void* p)
 double Inthelperf_nlo_theta_z2(double theta_z2, void* p)
 {
     Inthelper_nlobk* helper = reinterpret_cast<Inthelper_nlobk*>(p);
-    double result = Inthelperf_nlo( helper->r, helper->z, helper->theta_z, helper->z2, theta_z2, helper->solver, helper->dipole_interp, helper->dipole_interp_s);
+    double result = Inthelperf_nlo( helper->r, helper->z, helper->theta_z, helper->z2, theta_z2, helper->solver, helper->dipole_interp);
     return result;
 }
 
-double Inthelperf_nlo(double r, double z, double theta_z, double z2, double theta_z2, BKSolver* solver, Interpolator* dipole_interp, Interpolator* dipole_interp_s)
+double Inthelperf_nlo(double r, double z, double theta_z, double z2, double theta_z2, BKSolver* solver, Interpolator* dipole_interp)
 {   
     // we choose coordinates s.t. y=0 and x lies on positive x axis
     // X = x-z = -z + r
@@ -930,31 +915,19 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
         
 
 
-        /*
-        // Dipole part using N
-        double dipole = dipole_interp->Evaluate(z_m_z2)
-                            - dipole_interp->Evaluate(X)*dipole_interp->Evaluate(z_m_z2)
-                            - dipole_interp->Evaluate(z_m_z2)*dipole_interp->Evaluate(Y2)
-                            - dipole_interp->Evaluate(X)*dipole_interp->Evaluate(Y2)
-                            + dipole_interp->Evaluate(X)*dipole_interp->Evaluate(Y)
-                            + dipole_interp->Evaluate(X)*dipole_interp->Evaluate(z_m_z2)*dipole_interp->Evaluate(Y2)
-                            + dipole_interp->Evaluate(Y2) - dipole_interp->Evaluate(Y); // This is not part of eq. (136) in PRD
-                            
-        double dipole_swap = dipole_interp->Evaluate(z_m_z2)
-                            - dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(z_m_z2)
-                            - dipole_interp->Evaluate(z_m_z2)*dipole_interp->Evaluate(Y)
-                            - dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(Y)
-                            + dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(Y2)
-                            + dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(z_m_z2)*dipole_interp->Evaluate(Y)
-                            + dipole_interp->Evaluate(Y) - dipole_interp->Evaluate(Y2);
-        */
 
-        // Dipole part using S, minus sign as the evolution is written for n, not s
-        double dipole = -( dipole_interp_s->Evaluate(X)*dipole_interp_s->Evaluate(z_m_z2)*dipole_interp_s->Evaluate(Y2)
-                                - dipole_interp_s->Evaluate(X)*dipole_interp_s->Evaluate(Y)  );
-        double dipole_swap = -( dipole_interp_s->Evaluate(X2)*dipole_interp_s->Evaluate(z_m_z2)*dipole_interp_s->Evaluate(Y)
-                                - dipole_interp_s->Evaluate(X2)*dipole_interp_s->Evaluate(Y2)  );
-        
+        // Dipole part, -(S_X S_{z-z'} S_Y' - S_X S_Y) (minus sign as the evolution is written for N, not S),
+        // expressed in terms of N to avoid cancellations when N is small:
+        // = (1 - N_X) * ( N_{z-z'} + N_Y' - N_{z-z'} N_Y' - N_Y )
+        double n_X = dipole_interp->Evaluate(X);
+        double n_Y = dipole_interp->Evaluate(Y);
+        double n_X2 = dipole_interp->Evaluate(X2);
+        double n_Y2 = dipole_interp->Evaluate(Y2);
+        double n_zz2 = dipole_interp->Evaluate(z_m_z2);
+
+        double dipole = (1.0 - n_X) * ( n_zz2 + n_Y2 - n_zz2*n_Y2 - n_Y );
+        double dipole_swap = (1.0 - n_X2) * ( n_zz2 + n_Y - n_zz2*n_Y - n_Y2 );
+
 
         double dipcut = 1e-10;
         double kercut = 1e10;
@@ -977,16 +950,9 @@ double Inthelperf_nlo(double r, double z, double theta_z, double z2, double thet
         double kernel_f = solver->Kernel_nlo_fermion(r,X,Y,X2,Y2,z_m_z2);
         double kernel_f_swap = solver->Kernel_nlo_fermion(r,X2,Y2,X,Y,z_m_z2);
 
-            double dipole_f = dipole_interp_s->Evaluate(Y) * ( dipole_interp_s->Evaluate(X2) - dipole_interp_s->Evaluate(X) );
-            double dipole_f_swap = dipole_interp_s->Evaluate(Y2) * ( dipole_interp_s->Evaluate(X) - dipole_interp_s->Evaluate(X2) );
-
-            /*
-            // Dipole part using N
-            double dipole_f = dipole_interp->Evaluate(X) - dipole_interp->Evaluate(X2)
-                - dipole_interp->Evaluate(X)*dipole_interp->Evaluate(Y) + dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(Y);
-            double dipole_f_swap = dipole_interp->Evaluate(X2) - dipole_interp->Evaluate(X)
-                - dipole_interp->Evaluate(X2)*dipole_interp->Evaluate(Y2) + dipole_interp->Evaluate(X)*dipole_interp->Evaluate(Y2);
-            */
+            // S_Y (S_X' - S_X) = (1 - N_Y) (N_X - N_X')
+            double dipole_f = (1.0 - n_Y) * ( n_X - n_X2 );
+            double dipole_f_swap = (1.0 - n_Y2) * ( n_X2 - n_X );
         if (config::SYMMETRIZE_Z_Z2_INTEGRATION)
             result += -(kernel_f*dipole_f + kernel_f_swap * dipole_f_swap)/2.0;     // Minus sign as the evolution is written for S and we solve N
         else
@@ -1051,7 +1017,7 @@ double Inthelperf_nlo_mc(double* vec, size_t dim, void* p)
         exit(1);
     }
 
-    double integrand = Inthelperf_nlo(helper->r, std::exp(vec[0]), vec[2], std::exp(vec[1]), vec[3], helper->solver, helper->dipole_interp, helper->dipole_interp_s)
+    double integrand = Inthelperf_nlo(helper->r, std::exp(vec[0]), vec[2], std::exp(vec[1]), vec[3], helper->solver, helper->dipole_interp)
         * std::exp(2.0*vec[0]) * std::exp(2.0*vec[1]);  // Jacobian
 
     //cout << std::exp(vec[0]) << " " << std::exp(vec[1]) << " " << integrand << endl;
